@@ -1,0 +1,6 @@
+{
+  "dirs": ["res://tests/"],
+  "prefix": "test_",
+  "should_exit": true,
+  "log_level": 1
+}
