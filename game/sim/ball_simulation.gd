@@ -58,7 +58,7 @@ func _find_earliest(p: Vector2, d: Vector2, r: float) -> Dictionary:
 	for peg_id in _grid.query_near(p, search_r):
 		var peg: Dictionary = _pegs[peg_id]
 		var t := Collision.swept_circle(p, d, peg[&"pos"], r + peg[&"radius"])
-		if t >= 0.0:
+		if t >= 0.0 and t <= 1.0:
 			if t < best_t or (is_equal_approx(t, best_t) and peg_id < best.get(&"peg_id", INF)):
 				best_t = t
 				var contact := p + d * t
