@@ -1,0 +1,21 @@
+# ---- Godot 4 (.NET) ----
+.godot/
+/android/
+*.translation
+
+# ---- .NET / C# 编译产物 ----
+bin/
+obj/
+*.user
+*.suo
+
+# ---- JetBrains Rider ----
+.idea/
+
+# ---- Visual Studio ----
+.vs/
+
+# ---- OS ----
+Thumbs.db
+.DS_Store
+*.log.tmp
