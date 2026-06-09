@@ -1,6 +1,7 @@
 extends Node2D
 
 const DT := 1.0 / 120.0
+const GATE_DIST := 80.0
 
 var _rect: Rect2
 var _pegs: Array = []
@@ -22,6 +23,10 @@ var _event_cursor := 0
 var _flashes: Array = []
 
 var _launch_count := 0
+
+var _entry_edge: int = EntryResolver.BoardEdge.TOP
+var _entry_t: float = 0.5
+var _gate_applied := false
 
 var prediction_pts: Array[Vector2] = []
 var prediction_fans: Array = []
@@ -75,11 +80,28 @@ func set_active_gate(gate_id: StringName) -> void:
 	_gate_chain = GateChain.new([gate_rt])
 	$Hud.set_gate_label(String(gate_id))
 
+func set_entry(edge: int, t: float) -> void:
+	_entry_edge = edge
+	_entry_t = t
+
+func gate_axis() -> int:
+	match _entry_edge:
+		EntryResolver.BoardEdge.TOP:   return 0
+		EntryResolver.BoardEdge.LEFT:  return 1
+		_:                             return 2
+
+func gate_threshold() -> float:
+	match _entry_edge:
+		EntryResolver.BoardEdge.TOP:   return _rect.position.y + GATE_DIST
+		EntryResolver.BoardEdge.LEFT:  return _rect.position.x + GATE_DIST
+		_:                             return _rect.end.x - GATE_DIST
+
 func launch(ball: BallState) -> void:
 	if _has_ball:
 		return
 	_score_ctx.clear_for_launch()
-	_active_balls = _gate_chain.process(ball)
+	_active_balls = [ball]
+	_gate_applied = false
 	_has_ball = _active_balls.size() > 0
 	_prev_positions.resize(_active_balls.size())
 	_curr_positions.resize(_active_balls.size())
@@ -99,6 +121,28 @@ func _process(delta: float) -> void:
 					_prev_positions[i] = _active_balls[i].pos
 					_sim.step(_active_balls[i], _events)
 					_curr_positions[i] = _active_balls[i].pos
+
+			# Gate crossing check (only for first ball, before gate applied)
+			if not _gate_applied and _active_balls.size() == 1:
+				var b: BallState = _active_balls[0]
+				var axis := gate_axis()
+				var threshold := gate_threshold()
+				var crossed := false
+				match axis:
+					0: crossed = b.pos.y >= threshold
+					1: crossed = b.pos.x >= threshold
+					2: crossed = b.pos.x <= threshold
+				if crossed:
+					_active_balls = _gate_chain.process(b)
+					_gate_applied = true
+					# Resize position arrays for new ball count
+					_prev_positions.resize(_active_balls.size())
+					_curr_positions.resize(_active_balls.size())
+					for i in _active_balls.size():
+						_prev_positions[i] = _active_balls[i].pos
+						_curr_positions[i] = _active_balls[i].pos
+					# Flash at gate line position
+					_flashes.append({&"pos": b.pos, &"ttl": 0.2})
 
 			while _event_cursor < _events.size():
 				var e: Dictionary = _events[_event_cursor]
@@ -135,14 +179,66 @@ func _on_all_settled() -> void:
 	_active_balls.clear()
 	_prev_positions.clear(); _curr_positions.clear()
 
+func _draw_gate() -> void:
+	var axis := gate_axis()
+	var threshold := gate_threshold()
+	var half_w := 25.0  # half-width of gate channel
+
+	# Gate color by type
+	var gate_color := Color(0.8, 0.8, 0.8, 0.7)
+	match _active_gate_def.kind:
+		GateDef.Kind.ACCEL:
+			gate_color = Color(1.0, 0.8, 0.0, 0.85)
+		GateDef.Kind.SCATTER_ANGLE:
+			gate_color = Color(0.0, 0.8, 1.0, 0.85)
+		GateDef.Kind.SCATTER_SPLIT:
+			gate_color = Color(0.8, 0.2, 1.0, 0.85)
+
+	var p1: Vector2; var p2: Vector2
+	var entry_pos := EntryResolver.resolve(_entry_edge, _entry_t, _rect)[&"pos"]
+
+	match axis:
+		0:  # TOP: horizontal gate line
+			p1 = Vector2(entry_pos.x - half_w, threshold)
+			p2 = Vector2(entry_pos.x + half_w, threshold)
+		1:  # LEFT: vertical gate line
+			p1 = Vector2(threshold, entry_pos.y - half_w)
+			p2 = Vector2(threshold, entry_pos.y + half_w)
+		_:  # RIGHT: vertical gate line
+			p1 = Vector2(threshold, entry_pos.y - half_w)
+			p2 = Vector2(threshold, entry_pos.y + half_w)
+
+	# Glow (wide, semi-transparent)
+	draw_line(p1, p2, Color(gate_color.r, gate_color.g, gate_color.b, 0.3), 8.0)
+	# Core (bright, thin)
+	draw_line(p1, p2, gate_color, 2.5)
+
+	# Channel walls (thin lines from edge to gate)
+	var edge_p1: Vector2; var edge_p2: Vector2
+	match axis:
+		0:
+			edge_p1 = Vector2(entry_pos.x - half_w, _rect.position.y)
+			edge_p2 = Vector2(entry_pos.x + half_w, _rect.position.y)
+		1:
+			edge_p1 = Vector2(_rect.position.x, entry_pos.y - half_w)
+			edge_p2 = Vector2(_rect.position.x, entry_pos.y + half_w)
+		_:
+			edge_p1 = Vector2(_rect.end.x, entry_pos.y - half_w)
+			edge_p2 = Vector2(_rect.end.x, entry_pos.y + half_w)
+
+	draw_line(edge_p1, p1, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
+	draw_line(edge_p2, p2, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
+
 func _draw() -> void:
 	for peg in _pegs:
 		draw_circle(peg[&"pos"], peg[&"radius"], Color(0.2, 0.9, 1.0))
+	if not _has_ball:
+		_draw_gate()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
 	for fan in prediction_fans:
 		for i in range(1, fan.size()):
-			draw_line(fan[i - 1], fan[i], Color(1.0, 1.0, 0.4, 0.25), 1.5)
+			draw_line(fan[i - 1], fan[i], Color(1.0, 1.0, 0.4, 0.3), 1.5)
 	if _has_ball:
 		var alpha := _acc / DT
 		for i in _active_balls.size():

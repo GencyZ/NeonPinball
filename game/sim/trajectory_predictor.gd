@@ -27,3 +27,27 @@ static func predict_fan(sim: BallSimulation, start: BallState,
 		var b := BallState.new(start.pos, start.vel.rotated(a), start.radius)
 		fans.append(predict(sim, b, steps))
 	return fans
+
+# Simulate from start until ball crosses gate line (or max_steps reached).
+# axis: 0=TOP(check y>=thresh), 1=LEFT(check x>=thresh), 2=RIGHT(check x<=thresh)
+# Returns {&"pts": Array[Vector2], &"ball": BallState}
+static func predict_to_gate(sim: BallSimulation, start: BallState,
+                             axis: int, threshold: float,
+                             max_steps: int) -> Dictionary:
+	var pts: Array[Vector2] = []
+	var ball := start.clone()
+	var scratch: Array = []
+	for _i in max_steps:
+		if not ball.alive:
+			break
+		scratch.clear()
+		sim.step(ball, scratch)
+		pts.append(ball.pos)
+		var crossed := false
+		match axis:
+			0: crossed = ball.pos.y >= threshold
+			1: crossed = ball.pos.x >= threshold
+			2: crossed = ball.pos.x <= threshold
+		if crossed:
+			break
+	return {&"pts": pts, &"ball": ball}
