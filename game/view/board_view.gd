@@ -42,14 +42,18 @@ func _build_honeycomb() -> Array:
 	var id := 0
 	var rows := 8; var cols := 7
 	var spacing := 64.0; var margin := 60.0
+	# 三档大小：按行列位置循环分配，制造有规律的混合感
+	var sizes := [7.0, 10.0, 13.0]
+	var scores := [3.0, 5.0, 8.0]
 	for r in rows:
 		var y := margin + 140.0 + r * spacing
 		var x_off := (r % 2) * spacing * 0.5
 		for c in cols:
 			var x := margin + x_off + c * spacing
 			if x < _rect.end.x - margin:
+				var tier := (r + c * 2) % 3
 				list.append({&"id": id, &"pos": Vector2(x, y),
-							&"radius": 10.0, &"base_score": 5.0})
+							&"radius": sizes[tier], &"base_score": scores[tier]})
 				id += 1
 	return list
 
@@ -91,5 +95,5 @@ func _draw() -> void:
 		var draw_pos := _prev_pos.lerp(_curr_pos, alpha)
 		draw_circle(draw_pos, _ball.radius, Color(1.0, 0.3, 0.8))
 	for f in _flashes:
-		var a := f[&"ttl"] / 0.15
+		var a: float = f[&"ttl"] / 0.15
 		draw_circle(f[&"pos"], 16.0, Color(1.0, 1.0, 0.6, a * 0.8))

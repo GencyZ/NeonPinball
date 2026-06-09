@@ -15,8 +15,13 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var m := _board.get_local_mouse_position()
 	var r: Rect2 = _board.rect
-	_t = clampf((m.x - r.position.x) / r.size.x, 0.0, 1.0)
-	_aim = clampf((m.x - r.get_center().x) / (r.size.x * 0.5), -1.0, 1.0) * 1.2
+	match _edge:
+		EntryResolver.BoardEdge.TOP:
+			_t = clampf((m.x - r.position.x) / r.size.x, 0.0, 1.0)
+			_aim = clampf((m.x - r.get_center().x) / (r.size.x * 0.5), -1.0, 1.0) * 0.9
+		_:  # LEFT / RIGHT：用鼠标 Y，范围限制在 [0.15, 0.85]
+			_t = clampf((m.y - r.position.y) / r.size.y, 0.15, 0.85)
+			_aim = clampf((m.y - r.get_center().y) / (r.size.y * 0.5), -1.0, 1.0) * 0.9
 	var start := EntryResolver.make_ball(_edge, _t, _aim, SPEED, BALL_RADIUS, r)
 	_board.prediction_pts = TrajectoryPredictor.predict(_board.sim, start, 60)
 

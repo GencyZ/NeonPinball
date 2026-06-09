@@ -26,6 +26,6 @@ static func resolve(edge: int, t: float, rect: Rect2) -> Dictionary:
 static func make_ball(edge: int, t: float, aim_offset: float,
 					speed: float, radius: float, rect: Rect2) -> BallState:
 	var r := resolve(edge, t, rect)
-	var clamped := clampf(aim_offset, -1.396, 1.396)  # ±80°
+	var clamped := clampf(aim_offset, -0.873, 0.873)  # ±50°
 	var dir: Vector2 = r[&"normal"].rotated(clamped)
 	return BallState.new(r[&"pos"], dir * speed, radius)
