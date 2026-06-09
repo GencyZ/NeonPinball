@@ -14,3 +14,16 @@ static func predict(sim: BallSimulation, start: BallState, steps: int) -> Array[
 		sim.step(ball, scratch)
 		pts.append(ball.pos)
 	return pts
+
+# Returns Array of Array[Vector2], one per angular sample.
+# Samples span [-scatter_rad, +scatter_rad] left-to-right.
+static func predict_fan(sim: BallSimulation, start: BallState,
+                        scatter_rad: float, samples: int,
+                        steps: int) -> Array:
+	var fans := []
+	for i in samples:
+		var a := lerpf(-scatter_rad, scatter_rad,
+		               float(i) / maxf(samples - 1, 1))
+		var b := BallState.new(start.pos, start.vel.rotated(a), start.radius)
+		fans.append(predict(sim, b, steps))
+	return fans
