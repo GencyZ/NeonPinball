@@ -28,8 +28,8 @@ func _process(_delta: float) -> void:
 
 	var gate_def: GateDef = _board.active_gate_def
 	var start := EntryResolver.make_ball(_edge, _t, _aim, SPEED, BALL_RADIUS, r)
-	var axis := _board.gate_axis()
-	var threshold := _board.gate_threshold()
+	var axis: int = _board.gate_axis()
+	var threshold: float = _board.gate_threshold()
 
 	# Pre-gate: single ball path from entry to gate
 	var pre := TrajectoryPredictor.predict_to_gate(_board.sim, start, axis, threshold, 30)
@@ -50,8 +50,8 @@ func _process(_delta: float) -> void:
 			for k in gate_def.split_count:
 				var frac := float(k) / maxf(gate_def.split_count - 1, 1) - 0.5
 				var nb := BallState.new(gate_ball.pos,
-				                       gate_ball.vel.rotated(frac * gate_def.scatter_angle),
-				                       gate_ball.radius)
+									   gate_ball.vel.rotated(frac * gate_def.scatter_angle),
+									   gate_ball.radius)
 				_board.prediction_fans.append(TrajectoryPredictor.predict(_board.sim, nb, 60))
 		_:  # NORMAL
 			_board.prediction_fans = [TrajectoryPredictor.predict(_board.sim, gate_ball.clone(), 60)]

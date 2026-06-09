@@ -195,7 +195,7 @@ func _draw_gate() -> void:
 			gate_color = Color(0.8, 0.2, 1.0, 0.85)
 
 	var p1: Vector2; var p2: Vector2
-	var entry_pos := EntryResolver.resolve(_entry_edge, _entry_t, _rect)[&"pos"]
+	var entry_pos: Vector2 = EntryResolver.resolve(_entry_edge, _entry_t, _rect)[&"pos"]
 
 	match axis:
 		0:  # TOP: horizontal gate line
