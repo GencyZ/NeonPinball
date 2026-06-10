@@ -259,8 +259,11 @@ func _handle_phase_transition() -> void:
 	var phase: int = RunMan.state[&"phase"]
 	match phase:
 		RunManager.Phase.ANTE_CLEAR:
-			RunMan.advance()   # ANTE_CLEAR → SHOP (triggers payout)
-			_show_shop_ui()
+			RunMan.advance()   # ANTE_CLEAR → SHOP, or RUN_WIN on final ante (triggers payout)
+			if RunMan.state[&"phase"] == RunManager.Phase.SHOP:
+				_show_shop_ui()
+			else:
+				_handle_phase_transition()   # RUN_WIN: record the win, etc.
 		RunManager.Phase.RUN_WIN:
 			var saved := SaveSystemScript.load_data()
 			var total: int = int(RunMan.state[&"money"])
