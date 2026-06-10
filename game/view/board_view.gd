@@ -2,6 +2,7 @@ extends Node2D
 
 const DT := 1.0 / 120.0
 const GATE_DIST := 80.0
+const RunManagerScript := preload("res://run/run_manager.gd")
 
 var _rect: Rect2
 var _pegs: Array = []
@@ -11,6 +12,7 @@ var _score_ctx: ScoreContext
 var _trigger_runtimes: Array = []
 var _gate_chain: GateChain
 var _active_gate_def: GateDef
+var _active_shop: Shop = null
 
 var _active_balls: Array = []
 var _prev_positions: Array = []
@@ -54,6 +56,14 @@ func _ready() -> void:
 
 	set_active_gate(&"normal")
 
+	# Auto-advance RunManager to ROUND on first start
+	if RunMan.state[&"phase"] == RunManager.Phase.BOOT:
+		RunMan.advance()   # BOOT → RUN_START
+		RunMan.advance()   # RUN_START → ROUND
+	_apply_boss_mod()
+	_refresh_equipped()
+	_sync_hud()
+
 func _build_honeycomb() -> Array:
 	var list := []
 	var id := 0
@@ -96,9 +106,61 @@ func gate_threshold() -> float:
 		EntryResolver.BoardEdge.LEFT:  return _rect.position.x + GATE_DIST
 		_:                             return _rect.end.x - GATE_DIST
 
+func _apply_boss_mod() -> void:
+	var bm: Dictionary = RunMan.state[&"boss_mod"]
+	if bm.is_empty():
+		return
+	match bm[&"type"]:
+		&"ban_mult":
+			for peg in _pegs:
+				if peg[&"type"] != null and peg[&"type"].behavior == PegType.Behavior.MULT:
+					peg[&"type"] = GameDB.peg_types[&"normal"]
+		&"sparse":
+			var rng := DeterministicRng.derive(RunMan.state[&"master_seed"],
+											   RunMan.state[&"ante"] * 77 + 3)
+			var keep: Array = []
+			for peg in _pegs:
+				if peg[&"type"].behavior != PegType.Behavior.NORMAL or rng.next_float() >= bm[&"remove_chance"]:
+					keep.append(peg)
+			_pegs = keep
+			# Rebuild sim with updated pegs
+			var cfg := {
+				&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
+				&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
+			}
+			_sim = BallSimulation.new(_rect, _pegs, cfg)
+
+func _refresh_equipped() -> void:
+	_trigger_runtimes.clear()
+	for tid in RunMan.state[&"equipped_triggers"]:
+		if GameDB.triggers.has(tid):
+			_trigger_runtimes.append(TriggerRuntime.new(GameDB.triggers[tid]))
+	var gate_id: StringName = RunMan.state[&"equipped_gate"]
+	if GameDB.gate_defs.has(gate_id):
+		set_active_gate(gate_id)
+
+func _sync_hud() -> void:
+	$Hud.update_run_state(
+		RunMan.state[&"ante"],
+		RunMan.state[&"round_in_ante"],
+		RunMan.state[&"quota"],
+		RunMan.state[&"money"],
+		RunMan.state[&"launches_left"],
+		RunMan.state[&"round_score"],
+	)
+
 func launch(ball: BallState) -> void:
 	if _has_ball:
 		return
+	# Block launch if SHOP or WIN or LOSE phase
+	var phase: int = RunMan.state[&"phase"]
+	if phase != RunManager.Phase.ROUND and phase != RunManager.Phase.BOSS_ROUND:
+		return
+	# Block if no launches left
+	if RunMan.launches_exhausted():
+		return
+	RunMan.spend_launch()
+	_sync_hud()
 	_score_ctx.clear_for_launch()
 	_active_balls = [ball]
 	_gate_applied = false
@@ -175,9 +237,54 @@ func _on_all_settled() -> void:
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
 	$Hud.add_score(score)
+	RunMan.add_launch_score(score)
+	_sync_hud()
+	# Auto-advance when launches exhausted
+	if RunMan.launches_exhausted():
+		RunMan.advance()   # ROUND/BOSS_ROUND → ANTE_CLEAR or RUN_LOSE
+		_handle_phase_transition()
 	_has_ball = false; _acc = 0.0
 	_active_balls.clear()
 	_prev_positions.clear(); _curr_positions.clear()
+
+func _handle_phase_transition() -> void:
+	var phase: int = RunMan.state[&"phase"]
+	match phase:
+		RunManager.Phase.ANTE_CLEAR:
+			RunMan.advance()   # ANTE_CLEAR → SHOP (triggers payout)
+			_show_shop_ui()
+		RunManager.Phase.RUN_LOSE:
+			$Hud.set_gate_label("GAME OVER  (R to restart)")
+		RunManager.Phase.RUN_WIN:
+			$Hud.set_gate_label("YOU WIN!  (R to restart)")
+
+func _show_shop_ui() -> void:
+	_active_shop = Shop.new()
+	_active_shop.roll(
+		RunMan.state[&"master_seed"],
+		RunMan.state[&"ante"],
+		RunMan.state[&"round_in_ante"],
+		0,
+	)
+	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"])
+	_sync_hud()
+
+func leave_shop() -> void:
+	if _active_shop == null:
+		return
+	_active_shop = null
+	$Hud.hide_shop()
+	RunMan.advance()   # SHOP → ROUND (calls _start_round inside)
+	# Rebuild board for the new round
+	_pegs = _build_honeycomb()
+	var cfg := {
+		&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
+		&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
+	}
+	_sim = BallSimulation.new(_rect, _pegs, cfg)
+	_apply_boss_mod()
+	_refresh_equipped()
+	_sync_hud()
 
 func _draw_gate() -> void:
 	var axis := gate_axis()
