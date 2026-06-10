@@ -2,6 +2,8 @@ extends Node2D
 
 const DT := 1.0 / 120.0
 const GATE_DIST := 80.0
+const PEG_ANIM_DUR := 0.18      # peg hit pop duration (s)
+const PEG_ANIM_SCALE := 0.5     # extra radius at pop peak (1.0 -> 1.5x)
 const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 
@@ -24,6 +26,7 @@ var _acc := 0.0
 var _events: Array = []
 var _event_cursor := 0
 var _flashes: Array = []
+var _peg_anims: Dictionary = {}   # peg_id -> remaining pop-anim ttl
 
 var _launch_count := 0
 
@@ -224,10 +227,12 @@ func _process(delta: float) -> void:
 					_score_ctx.pegs_hit += 1
 					var hit_peg_id: int = e[&"peg_id"]
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
+						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
 						var hit_type: PegType = _pegs[hit_peg_id].get(&"type")
 						if hit_type != null and hit_type.behavior == PegType.Behavior.MULT:
 							_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
-					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15})
+					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15,
+						&"color": Color.from_hsv(randf(), 0.85, 1.0)})
 				elif e[&"type"] == SimEvent.BOUNCE:
 					_score_ctx.bounce_count += 1
 				for rt in _trigger_runtimes:
@@ -248,6 +253,10 @@ func _process(delta: float) -> void:
 			_flashes[i][&"ttl"] -= delta
 			if _flashes[i][&"ttl"] <= 0.0:
 				_flashes.remove_at(i)
+		for pid in _peg_anims.keys():
+			_peg_anims[pid] -= delta
+			if _peg_anims[pid] <= 0.0:
+				_peg_anims.erase(pid)
 	queue_redraw()
 
 func _on_all_settled() -> void:
@@ -370,7 +379,12 @@ func _draw() -> void:
 		var col := Color(0.2, 0.9, 1.0)
 		if pt != null and pt.behavior == PegType.Behavior.MULT:
 			col = Color(1.0, 0.55, 0.0)
-		draw_circle(peg[&"pos"], peg[&"radius"], col)
+		var radius: float = peg[&"radius"]
+		var anim_ttl: float = _peg_anims.get(peg[&"id"], 0.0)
+		if anim_ttl > 0.0:
+			var prog := 1.0 - anim_ttl / PEG_ANIM_DUR
+			radius *= 1.0 + PEG_ANIM_SCALE * sin(prog * PI)
+		draw_circle(peg[&"pos"], radius, col)
 	if not _has_ball:
 		_draw_gate()
 	for i in range(1, prediction_pts.size()):
@@ -386,4 +400,5 @@ func _draw() -> void:
 				draw_circle(dp, _active_balls[i].radius, Color(1.0, 0.3, 0.8))
 	for f in _flashes:
 		var a: float = f[&"ttl"] / f[&"max_ttl"]
-		draw_circle(f[&"pos"], 16.0, Color(1.0, 1.0, 0.6, a * 0.8))
+		var base_col: Color = f.get(&"color", Color(1.0, 1.0, 0.6))
+		draw_circle(f[&"pos"], 16.0, Color(base_col.r, base_col.g, base_col.b, a * 0.8))
