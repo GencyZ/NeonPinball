@@ -83,3 +83,50 @@ func test_boss_round_is_round_2() -> void:
     assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.BOSS_ROUND)
     assert_false(mgr.state[&"boss_mod"].is_empty(), "boss mod must be set")
     mgr.free()
+
+func test_launches_exhausted() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance()   # BOOT → RUN_START
+    mgr.advance()   # RUN_START → ROUND
+    assert_false(mgr.launches_exhausted(), "should not be exhausted at start")
+    for _i in 5:
+        mgr.spend_launch()
+    assert_true(mgr.launches_exhausted(), "should be exhausted after 5 launches")
+    # Extra spend_launch should not go below 0
+    mgr.spend_launch()
+    assert_eq(mgr.state[&"launches_left"], 0)
+    mgr.free()
+
+func test_full_3_areas_run_win() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance()   # BOOT → RUN_START
+    mgr.advance()   # RUN_START → ROUND
+
+    for _iter in 60:
+        var phase: int = mgr.state[&"phase"]
+        if phase == RunManagerScript.Phase.ROUND or phase == RunManagerScript.Phase.BOSS_ROUND:
+            mgr.state[&"round_score"] = 999999.0
+            mgr.advance()
+        elif phase == RunManagerScript.Phase.ANTE_CLEAR:
+            mgr.advance()
+        elif phase == RunManagerScript.Phase.SHOP:
+            mgr.advance()
+        elif phase == RunManagerScript.Phase.RUN_WIN:
+            break
+        else:
+            break
+
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.RUN_WIN)
+    mgr.free()
+
+func test_reset_after_lose() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance()
+    mgr.advance()
+    mgr.state[&"round_score"] = 0.0
+    mgr.advance()   # → RUN_LOSE
+    mgr.advance()   # → _reset() → BOOT
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.BOOT)
+    assert_eq(mgr.state[&"ante"], 1)
+    assert_eq(mgr.state[&"money"], 0)
+    mgr.free()

@@ -23,7 +23,26 @@ var state: Dictionary = {
     &"boss_mod":            {},
 }
 
+static func _make_default_state() -> Dictionary:
+    return {
+        &"master_seed":         0,
+        &"phase":               0,   # Phase.BOOT — use int 0 because static func can't reference enum at class level in GDScript
+        &"ante":                1,
+        &"round_in_ante":       0,
+        &"round_score":         0.0,
+        &"quota":               0.0,
+        &"launches_left":       5,
+        &"money":               0,
+        &"equipped_triggers":   [&"peg_bonus", &"bounce_mult", &"big_hit"],
+        &"equipped_gate":       &"normal",
+        &"boss_mod":            {},
+    }
+
 const LAUNCHES_PER_ROUND := 5
+
+func _ready() -> void:
+    assert(state.hash() == _make_default_state().hash(), \
+           "state field and _make_default_state() diverged — update both")
 
 static func quota_of(ante: int, round_in_ante: int) -> float:
     var ante_base := 50.0 * pow(1.6, ante - 1)
@@ -97,16 +116,4 @@ func _roll_boss_mod() -> Dictionary:
     return {&"type": &"sparse", &"remove_chance": 0.30}
 
 func _reset() -> void:
-    state = {
-        &"master_seed":         0,
-        &"phase":               Phase.BOOT,
-        &"ante":                1,
-        &"round_in_ante":       0,
-        &"round_score":         0.0,
-        &"quota":               0.0,
-        &"launches_left":       5,
-        &"money":               0,
-        &"equipped_triggers":   [&"peg_bonus", &"bounce_mult", &"big_hit"],
-        &"equipped_gate":       &"normal",
-        &"boss_mod":            {},
-    }
+    state = _make_default_state()
