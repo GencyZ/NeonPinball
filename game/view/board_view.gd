@@ -74,9 +74,10 @@ func _build_honeycomb() -> Array:
 			var x := margin + x_off + c * spacing
 			if x < _rect.end.x - margin:
 				var tier := (r + c * 2) % 3
+				var peg_type: PegType = GameDB.peg_types[&"mult"] if (r * 7 + c) % 7 == 3 else GameDB.peg_types[&"normal"]
 				list.append({&"id": id, &"pos": Vector2(x, y),
 							&"radius": sizes[tier], &"base_score": scores[tier],
-							&"type": GameDB.peg_types[&"normal"]})
+							&"type": peg_type})
 				id += 1
 	return list
 
@@ -210,6 +211,11 @@ func _process(delta: float) -> void:
 				var e: Dictionary = _events[_event_cursor]
 				if e[&"type"] == SimEvent.PEG_HIT:
 					_score_ctx.pegs_hit += 1
+					var hit_peg_id: int = e[&"peg_id"]
+					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
+						var hit_type: PegType = _pegs[hit_peg_id].get(&"type")
+						if hit_type != null and hit_type.behavior == PegType.Behavior.MULT:
+							_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
 					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15})
 				elif e[&"type"] == SimEvent.BOUNCE:
 					_score_ctx.bounce_count += 1
@@ -335,7 +341,11 @@ func _draw_gate() -> void:
 
 func _draw() -> void:
 	for peg in _pegs:
-		draw_circle(peg[&"pos"], peg[&"radius"], Color(0.2, 0.9, 1.0))
+		var pt: PegType = peg.get(&"type")
+		var col := Color(0.2, 0.9, 1.0)
+		if pt != null and pt.behavior == PegType.Behavior.MULT:
+			col = Color(1.0, 0.55, 0.0)
+		draw_circle(peg[&"pos"], peg[&"radius"], col)
 	if not _has_ball:
 		_draw_gate()
 	for i in range(1, prediction_pts.size()):
