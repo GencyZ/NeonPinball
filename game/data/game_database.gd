@@ -25,6 +25,7 @@ func _register_defaults() -> void:
     peg_bonus.listen_mask = 1
     peg_bonus.effect = TriggerDef.Effect.ADD_BASE
     peg_bonus.value = 3.0
+    peg_bonus.rarity = 0    # common
     triggers[peg_bonus.id] = peg_bonus
 
     var bmult := TriggerDef.new()
@@ -32,6 +33,7 @@ func _register_defaults() -> void:
     bmult.listen_mask = 2
     bmult.effect = TriggerDef.Effect.ADD_MULT
     bmult.value = 0.2
+    bmult.rarity = 0        # common
     triggers[bmult.id] = bmult
 
     var big_hit := TriggerDef.new()
@@ -41,7 +43,29 @@ func _register_defaults() -> void:
     big_hit.value = 1.5
     big_hit.condition = TriggerDef.Condition.PEGS_HIT_GTE
     big_hit.condition_threshold = 5
+    big_hit.rarity = 1      # uncommon
     triggers[big_hit.id] = big_hit
+
+    # Extra triggers for shop pool
+    var chain_bonus := TriggerDef.new()
+    chain_bonus.id = &"chain_bonus"
+    chain_bonus.listen_mask = 4         # SETTLED
+    chain_bonus.effect = TriggerDef.Effect.ADD_BASE
+    chain_bonus.value = 10.0
+    chain_bonus.condition = TriggerDef.Condition.PEGS_HIT_GTE
+    chain_bonus.condition_threshold = 3
+    chain_bonus.rarity = 1
+    triggers[chain_bonus.id] = chain_bonus
+
+    var double_mult := TriggerDef.new()
+    double_mult.id = &"double_mult"
+    double_mult.listen_mask = 4         # SETTLED
+    double_mult.effect = TriggerDef.Effect.MUL_MULT
+    double_mult.value = 2.0
+    double_mult.condition = TriggerDef.Condition.BOUNCE_GTE
+    double_mult.condition_threshold = 10
+    double_mult.rarity = 2
+    triggers[double_mult.id] = double_mult
 
     # --- Gates ---
     var gn := GateDef.new()
