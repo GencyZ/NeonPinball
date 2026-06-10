@@ -100,12 +100,18 @@ func update_run_state(ante: int, round_in_ante: int,
 func show_shop(offerings: Array, money: int) -> void:
 	_shop_visible = true
 	_shop_panel.visible = true
+
+	# Clear all 4 slots at start
+	for i in 4:
+		_shop_slots[i].text = ""
+		_shop_slots[i].modulate = Color.WHITE
+
 	for i in mini(offerings.size(), 4):
 		var offer: Dictionary = offerings[i]
-		var item: Resource = offer[&"item"]
-		var name_str: String = String(item.id)
-		var price: int = offer[&"price"]
-		var is_sold: bool = offer[&"sold"]
+		var item: Resource = offer.get(&"item")
+		var name_str: String = String(item.id) if item != null and "id" in item else "Unknown"
+		var price: int = offer.get(&"price", 0)
+		var is_sold: bool = offer.get(&"sold", false)
 		if is_sold:
 			_shop_slots[i].text = "[%d] SOLD" % (i + 1)
 			_shop_slots[i].modulate = Color(0.4, 0.4, 0.4)
