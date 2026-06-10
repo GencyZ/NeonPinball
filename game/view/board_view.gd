@@ -43,11 +43,7 @@ var active_gate_def: GateDef:
 func _ready() -> void:
 	_rect = Rect2(0, 0, 540, 900)
 	_pegs = _build_honeycomb()
-	var cfg := {
-		&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
-		&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
-	}
-	_sim = BallSimulation.new(_rect, _pegs, cfg)
+	_sim = _make_sim(_pegs)
 	_engine = ScoringEngine.new()
 	_score_ctx = ScoreContext.new()
 
@@ -79,9 +75,16 @@ func _build_honeycomb() -> Array:
 			if x < _rect.end.x - margin:
 				var tier := (r + c * 2) % 3
 				list.append({&"id": id, &"pos": Vector2(x, y),
-							&"radius": sizes[tier], &"base_score": scores[tier]})
+							&"radius": sizes[tier], &"base_score": scores[tier],
+							&"type": GameDB.peg_types[&"normal"]})
 				id += 1
 	return list
+
+func _make_sim(pegs: Array) -> BallSimulation:
+	return BallSimulation.new(_rect, pegs, {
+		&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
+		&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
+	})
 
 func set_active_gate(gate_id: StringName) -> void:
 	_active_gate_def = GameDB.gate_defs[gate_id]
@@ -124,11 +127,7 @@ func _apply_boss_mod() -> void:
 					keep.append(peg)
 			_pegs = keep
 			# Rebuild sim with updated pegs
-			var cfg := {
-				&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
-				&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
-			}
-			_sim = BallSimulation.new(_rect, _pegs, cfg)
+			_sim = _make_sim(_pegs)
 
 func _refresh_equipped() -> void:
 	_trigger_runtimes.clear()
@@ -204,13 +203,13 @@ func _process(delta: float) -> void:
 						_prev_positions[i] = _active_balls[i].pos
 						_curr_positions[i] = _active_balls[i].pos
 					# Flash at gate line position
-					_flashes.append({&"pos": b.pos, &"ttl": 0.2})
+					_flashes.append({&"pos": b.pos, &"ttl": 0.2, &"max_ttl": 0.2})
 
 			while _event_cursor < _events.size():
 				var e: Dictionary = _events[_event_cursor]
 				if e[&"type"] == SimEvent.PEG_HIT:
 					_score_ctx.pegs_hit += 1
-					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15})
+					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15})
 				elif e[&"type"] == SimEvent.BOUNCE:
 					_score_ctx.bounce_count += 1
 				for rt in _trigger_runtimes:
@@ -238,14 +237,15 @@ func _on_all_settled() -> void:
 	var score: float = result[0]
 	$Hud.add_score(score)
 	RunMan.add_launch_score(score)
+	# Clean up ball state first, before any phase transition
+	_has_ball = false; _acc = 0.0
+	_active_balls.clear()
+	_prev_positions.clear(); _curr_positions.clear()
 	_sync_hud()
 	# Auto-advance when launches exhausted
 	if RunMan.launches_exhausted():
 		RunMan.advance()   # ROUND/BOSS_ROUND → ANTE_CLEAR or RUN_LOSE
 		_handle_phase_transition()
-	_has_ball = false; _acc = 0.0
-	_active_balls.clear()
-	_prev_positions.clear(); _curr_positions.clear()
 
 func _handle_phase_transition() -> void:
 	var phase: int = RunMan.state[&"phase"]
@@ -277,11 +277,7 @@ func leave_shop() -> void:
 	RunMan.advance()   # SHOP → ROUND (calls _start_round inside)
 	# Rebuild board for the new round
 	_pegs = _build_honeycomb()
-	var cfg := {
-		&"gravity": Vector2(0, 1400), &"max_speed": 4000.0,
-		&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
-	}
-	_sim = BallSimulation.new(_rect, _pegs, cfg)
+	_sim = _make_sim(_pegs)
 	_apply_boss_mod()
 	_refresh_equipped()
 	_sync_hud()
@@ -353,5 +349,5 @@ func _draw() -> void:
 				var dp := (_prev_positions[i] as Vector2).lerp(_curr_positions[i], alpha)
 				draw_circle(dp, _active_balls[i].radius, Color(1.0, 0.3, 0.8))
 	for f in _flashes:
-		var a: float = f[&"ttl"] / 0.15
+		var a: float = f[&"ttl"] / f[&"max_ttl"]
 		draw_circle(f[&"pos"], 16.0, Color(1.0, 1.0, 0.6, a * 0.8))
