@@ -99,6 +99,7 @@ func test_launches_exhausted() -> void:
 
 func test_full_3_areas_run_win() -> void:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.advance()   # BOOT → RUN_START
     mgr.advance()   # RUN_START → ROUND
 

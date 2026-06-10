@@ -39,6 +39,7 @@ static func _make_default_state() -> Dictionary:
     }
 
 const LAUNCHES_PER_ROUND := 5
+var max_areas := 8
 
 func _ready() -> void:
     assert(state.hash() == _make_default_state().hash(), \
@@ -73,7 +74,7 @@ func advance(input: Dictionary = {}) -> void:
             if state[&"round_in_ante"] > 2:
                 state[&"round_in_ante"] = 0
                 state[&"ante"] += 1
-                if state[&"ante"] > 3:   # MVP: 3 areas win
+                if state[&"ante"] > max_areas:
                     state[&"phase"] = Phase.RUN_WIN
                     return
             state[&"phase"] = Phase.SHOP

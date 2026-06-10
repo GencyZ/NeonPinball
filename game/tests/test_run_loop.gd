@@ -9,6 +9,7 @@ const RunManagerScript := preload("res://run/run_manager.gd")
 
 func test_full_3_area_run_win() -> void:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.advance()   # BOOT → RUN_START
     mgr.advance()   # RUN_START → ROUND
 
@@ -42,6 +43,7 @@ func test_full_3_area_run_win() -> void:
 
 func test_lose_on_low_score() -> void:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.advance()
     mgr.advance()
     mgr.state[&"round_score"] = 0.0
@@ -51,6 +53,7 @@ func test_lose_on_low_score() -> void:
 
 func test_boss_round_at_round_2() -> void:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.advance()
     mgr.advance()
     # Pass first 2 rounds (round_in_ante 0 and 1)
@@ -66,6 +69,7 @@ func test_boss_round_at_round_2() -> void:
 
 func test_money_accumulates_across_rounds() -> void:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.advance()
     mgr.advance()
 
@@ -101,8 +105,30 @@ func test_replay_same_final_state() -> void:
     assert_eq(state_a[&"ante"],   state_b[&"ante"])
     assert_eq(state_a[&"phase"],  state_b[&"phase"])
 
+func test_8_area_run_win_requires_24_rounds() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()
+    var rounds := 0
+    for _i in 200:
+        match mgr.state[&"phase"]:
+            RunManagerScript.Phase.ROUND, RunManagerScript.Phase.BOSS_ROUND:
+                mgr.state[&"round_score"] = 999999.0
+                mgr.advance(); rounds += 1
+            RunManagerScript.Phase.ANTE_CLEAR:
+                mgr.advance()
+            RunManagerScript.Phase.SHOP:
+                mgr.advance()
+            RunManagerScript.Phase.RUN_WIN:
+                break
+            _:
+                break
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.RUN_WIN)
+    assert_eq(rounds, 24, "8 areas x 3 rounds = 24")
+    mgr.free()
+
 func _run_headless(seed: int) -> Dictionary:
     var mgr := RunManagerScript.new()
+    mgr.max_areas = 3
     mgr.state[&"master_seed"] = seed
     mgr.advance()
     mgr.advance()
