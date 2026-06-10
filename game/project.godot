@@ -15,6 +15,11 @@ run/main_scene="uid://drrdpjtrhjtij"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GameDB="*res://data/game_database.gd"
+RunMan="*res://run/run_manager.gd"
+
 [display]
 
 window/size/viewport_width=540
@@ -31,7 +36,3 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 [rendering]
 
 rendering_device/driver.windows="d3d12"
-
-[autoload]
-
-GameDB="*res://data/game_database.gd"
