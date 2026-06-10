@@ -1,36 +1,122 @@
 extends CanvasLayer
 
-var _total := 0.0
+# ---- Run state labels (top-left and top-right) ----
 var _label_total: Label
 var _label_last: Label
 var _label_gate: Label
+var _label_ante: Label
+var _label_quota: Label
+var _label_money: Label
+var _label_launches: Label
+
+# ---- Shop panel ----
+var _shop_panel: PanelContainer
+var _shop_title: Label
+var _shop_slots: Array[Label] = []
+var _shop_hint: Label
+var _shop_visible := false
+
+# ---- Internal ----
+var _total := 0.0
 
 func _ready() -> void:
-	_label_total = Label.new()
-	_label_total.position = Vector2(20, 20)
-	_label_total.add_theme_font_size_override(&"font_size", 28)
-	add_child(_label_total)
+	# Top-left: score display
+	_label_total = _make_label(Vector2(20, 20), 28)
+	_label_last  = _make_label(Vector2(20, 56), 18, Color(1, 1, 0.5))
+	_label_gate  = _make_label(Vector2(20, 82), 18, Color(0.6, 1.0, 0.8))
 
-	_label_last = Label.new()
-	_label_last.position = Vector2(20, 60)
-	_label_last.add_theme_font_size_override(&"font_size", 18)
-	_label_last.modulate = Color(1, 1, 0.5)
-	add_child(_label_last)
+	# Top-right: run state
+	_label_ante    = _make_label(Vector2(300, 20), 18, Color(1.0, 0.8, 0.4))
+	_label_quota   = _make_label(Vector2(300, 44), 18, Color(1.0, 0.5, 0.5))
+	_label_money   = _make_label(Vector2(300, 68), 18, Color(0.4, 1.0, 0.6))
+	_label_launches = _make_label(Vector2(300, 92), 18, Color(0.8, 0.8, 1.0))
 
-	_label_gate = Label.new()
-	_label_gate.position = Vector2(20, 90)
-	_label_gate.add_theme_font_size_override(&"font_size", 18)
-	_label_gate.modulate = Color(0.6, 1.0, 0.8)
-	add_child(_label_gate)
+	# Initialize text
+	_label_total.text    = "Score: 0"
+	_label_last.text     = ""
+	_label_gate.text     = "Gate: normal"
+	_label_ante.text     = "Ante 1 · Round 1"
+	_label_quota.text    = "Score 0 / 50"
+	_label_money.text    = "Gold: 0"
+	_label_launches.text = "Launches: 5"
 
-	_label_total.text = "Score: 0"
-	_label_last.text = ""
-	_label_gate.text = "Gate: normal"
+	_build_shop_panel()
+
+func _make_label(pos: Vector2, size: int, color: Color = Color.WHITE) -> Label:
+	var lbl := Label.new()
+	lbl.position = pos
+	lbl.add_theme_font_size_override(&"font_size", size)
+	lbl.modulate = color
+	add_child(lbl)
+	return lbl
+
+func _build_shop_panel() -> void:
+	_shop_panel = PanelContainer.new()
+	_shop_panel.position = Vector2(60, 160)
+	_shop_panel.custom_minimum_size = Vector2(420, 300)
+	_shop_panel.visible = false
+	add_child(_shop_panel)
+
+	var vbox := VBoxContainer.new()
+	_shop_panel.add_child(vbox)
+
+	_shop_title = Label.new()
+	_shop_title.text = "=== SHOP ==="
+	_shop_title.add_theme_font_size_override(&"font_size", 24)
+	_shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_shop_title)
+
+	for i in 4:
+		var lbl := Label.new()
+		lbl.add_theme_font_size_override(&"font_size", 18)
+		vbox.add_child(lbl)
+		_shop_slots.append(lbl)
+
+	_shop_hint = Label.new()
+	_shop_hint.text = "Press 1-4 to buy  ·  Space to continue"
+	_shop_hint.add_theme_font_size_override(&"font_size", 14)
+	_shop_hint.modulate = Color(0.7, 0.7, 0.7)
+	_shop_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_shop_hint)
+
+# ---- Public API ----
 
 func add_score(s: float) -> void:
 	_total += s
 	_label_total.text = "Score: %d" % int(_total)
-	_label_last.text = "+%d" % int(s)
+	_label_last.text  = "+%d" % int(s)
 
 func set_gate_label(gate_name: String) -> void:
 	_label_gate.text = "Gate: " + gate_name
+
+func update_run_state(ante: int, round_in_ante: int,
+					  quota: float, money: int, launches: int,
+					  round_score: float) -> void:
+	_label_ante.text    = "Ante %d · Round %d" % [ante, round_in_ante + 1]
+	_label_quota.text   = "Score %d / %d" % [int(round_score), int(quota)]
+	_label_money.text   = "Gold: %d" % money
+	_label_launches.text = "Launches: %d" % launches
+
+func show_shop(offerings: Array, money: int) -> void:
+	_shop_visible = true
+	_shop_panel.visible = true
+	for i in mini(offerings.size(), 4):
+		var offer: Dictionary = offerings[i]
+		var item: Resource = offer[&"item"]
+		var name_str: String = String(item.id)
+		var price: int = offer[&"price"]
+		var is_sold: bool = offer[&"sold"]
+		if is_sold:
+			_shop_slots[i].text = "[%d] SOLD" % (i + 1)
+			_shop_slots[i].modulate = Color(0.4, 0.4, 0.4)
+		else:
+			var can_afford := money >= price
+			_shop_slots[i].text = "[%d] %s  (%d gold)" % [i + 1, name_str, price]
+			_shop_slots[i].modulate = Color(1, 1, 0.5) if can_afford else Color(0.5, 0.5, 0.5)
+
+func hide_shop() -> void:
+	_shop_visible = false
+	_shop_panel.visible = false
+
+func is_shop_visible() -> bool:
+	return _shop_visible
