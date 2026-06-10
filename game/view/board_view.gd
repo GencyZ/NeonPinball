@@ -3,6 +3,7 @@ extends Node2D
 const DT := 1.0 / 120.0
 const GATE_DIST := 80.0
 const RunManagerScript := preload("res://run/run_manager.gd")
+const SaveSystemScript := preload("res://run/save_system.gd")
 
 var _rect: Rect2
 var _pegs: Array = []
@@ -260,10 +261,21 @@ func _handle_phase_transition() -> void:
 		RunManager.Phase.ANTE_CLEAR:
 			RunMan.advance()   # ANTE_CLEAR → SHOP (triggers payout)
 			_show_shop_ui()
-		RunManager.Phase.RUN_LOSE:
-			$Hud.set_gate_label("GAME OVER  (R to restart)")
 		RunManager.Phase.RUN_WIN:
-			$Hud.set_gate_label("YOU WIN!  (R to restart)")
+			var saved := SaveSystemScript.load_data()
+			var total: int = int(RunMan.state[&"money"])
+			if total > int(saved[&"best_score"]):
+				saved[&"best_score"] = total
+			saved[&"runs_completed"] = int(saved[&"runs_completed"]) + 1
+			saved[&"last_date"] = SaveSystemScript.today_string()
+			saved[&"daily_completed"] = true
+			SaveSystemScript.save(saved)
+			$Hud.set_gate_label("YOU WIN!  Best: %d  (R to restart)" % int(saved[&"best_score"]))
+		RunManager.Phase.RUN_LOSE:
+			var saved := SaveSystemScript.load_data()
+			saved[&"runs_completed"] = int(saved[&"runs_completed"]) + 1
+			SaveSystemScript.save(saved)
+			$Hud.set_gate_label("GAME OVER  (R to restart)")
 
 func _show_shop_ui() -> void:
 	_active_shop = Shop.new()
