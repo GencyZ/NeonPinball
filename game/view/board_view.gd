@@ -53,6 +53,9 @@ func _ready() -> void:
 
 	set_active_gate(&"normal")
 
+	if int(RunMan.state[&"master_seed"]) == 0:
+		RunMan.state[&"master_seed"] = SaveSystemScript.daily_seed()
+
 	# Auto-advance RunManager to ROUND on first start
 	if RunMan.state[&"phase"] == RunManager.Phase.BOOT:
 		RunMan.advance()   # BOOT → RUN_START
@@ -60,6 +63,13 @@ func _ready() -> void:
 	_apply_boss_mod()
 	_refresh_equipped()
 	_sync_hud()
+
+	var saved := SaveSystemScript.load_data()
+	var daily_done: bool = bool(saved[&"daily_completed"]) and String(saved[&"last_date"]) == SaveSystemScript.today_string()
+	if daily_done:
+		$Hud.set_gate_label("Daily DONE  Best: %d" % int(saved[&"best_score"]))
+	else:
+		$Hud.set_gate_label("Daily #%d" % int(RunMan.state[&"master_seed"]))
 
 func _build_honeycomb() -> Array:
 	var list := []

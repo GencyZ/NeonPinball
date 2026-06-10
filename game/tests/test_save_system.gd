@@ -22,3 +22,11 @@ func test_today_string_format() -> void:
 	assert_eq(s.length(), 10)
 	assert_eq(s[4], "-")
 	assert_eq(s[7], "-")
+
+func test_daily_seed_positive() -> void:
+	var s := SaveSystemScript.daily_seed()
+	assert_true(s > 0)
+	assert_true(s < 0x7FFFFFFF)
+
+func test_daily_seed_deterministic() -> void:
+	assert_eq(SaveSystemScript.daily_seed(), SaveSystemScript.daily_seed())

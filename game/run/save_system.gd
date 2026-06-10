@@ -25,3 +25,7 @@ static func load_data() -> Dictionary:
 static func today_string() -> String:
 	var d := Time.get_date_dict_from_system()
 	return "%04d-%02d-%02d" % [d["year"], d["month"], d["day"]]
+
+static func daily_seed() -> int:
+	var d := Time.get_date_dict_from_system()
+	return (int(d["year"]) * 10000 + int(d["month"]) * 100 + int(d["day"])) & 0x7FFFFFFF
