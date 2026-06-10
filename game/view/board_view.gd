@@ -126,7 +126,8 @@ func _apply_boss_mod() -> void:
 				if peg[&"type"].behavior != PegType.Behavior.NORMAL or rng.next_float() >= bm[&"remove_chance"]:
 					keep.append(peg)
 			_pegs = keep
-			# Rebuild sim with updated pegs
+			for i in _pegs.size():
+				_pegs[i][&"id"] = i
 			_sim = _make_sim(_pegs)
 
 func _refresh_equipped() -> void:

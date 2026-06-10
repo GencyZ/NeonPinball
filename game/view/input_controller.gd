@@ -109,5 +109,5 @@ func _handle_shop_key(keycode: Key) -> void:
 					equipped.append(item.id)
 			elif item is GateDef:
 				RunMan.state[&"equipped_gate"] = item.id
-		_board.$Hud.show_shop(shop.offerings, RunMan.state[&"money"])
+		_board.get_node("Hud").show_shop(shop.offerings, RunMan.state[&"money"])
 		_board._sync_hud()
