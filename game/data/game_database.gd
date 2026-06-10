@@ -70,17 +70,21 @@ func _register_defaults() -> void:
     # --- Gates ---
     var gn := GateDef.new()
     gn.id = &"normal"; gn.kind = GateDef.Kind.NORMAL
+    gn.rarity = 0
     gate_defs[gn.id] = gn
 
     var ga := GateDef.new()
     ga.id = &"accel"; ga.kind = GateDef.Kind.ACCEL; ga.speed_mul = 1.5
+    ga.rarity = 0
     gate_defs[ga.id] = ga
 
     var gsa := GateDef.new()
     gsa.id = &"scatter_angle"; gsa.kind = GateDef.Kind.SCATTER_ANGLE; gsa.scatter_angle = 0.3
+    gsa.rarity = 1
     gate_defs[gsa.id] = gsa
 
     var gss := GateDef.new()
     gss.id = &"scatter_split"; gss.kind = GateDef.Kind.SCATTER_SPLIT
     gss.split_count = 3; gss.scatter_angle = 0.4
+    gss.rarity = 1
     gate_defs[gss.id] = gss

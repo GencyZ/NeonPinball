@@ -9,6 +9,8 @@ const REROLL_STEP := 1
 var offerings: Array = []   # Array of {&"item": Resource, &"price": int, &"sold": bool}
 
 func roll(master_seed: int, ante: int, node_cursor: int, reroll_count: int) -> void:
+    assert(node_cursor < 100, "Shop.roll: node_cursor must be < 100 to avoid tag collision")
+    assert(reroll_count < 100, "Shop.roll: reroll_count must be < 100 to avoid tag collision")
     var tag := ante * 10000 + node_cursor * 100 + reroll_count
     var rng := DeterministicRng.derive(master_seed, tag)
     offerings.clear()
@@ -38,13 +40,19 @@ func buy(slot: int, inventory: Dictionary, money_ref: Array) -> bool:
 
 func _roll_item(ante: int, rng: DeterministicRng) -> Resource:
     var use_gate := rng.next_float() < 0.35
+    var item: Resource
     if use_gate:
-        return _roll_from_pool(GameDB.gate_defs.values(), ante, rng)
-    return _roll_from_pool(GameDB.triggers.values(), ante, rng)
+        item = _roll_from_pool(GameDB.gate_defs.values(), ante, rng)
+    else:
+        item = _roll_from_pool(GameDB.triggers.values(), ante, rng)
+    if item == null:
+        item = GameDB.triggers.values()[0]   # absolute fallback
+    return item
 
 func _roll_from_pool(pool: Array, ante: int, rng: DeterministicRng) -> Resource:
     if pool.is_empty():
-        return GameDB.triggers.values()[0]
+        push_error("Shop._roll_from_pool: empty pool")
+        return null
     var weights: Array[int] = []
     for item in pool:
         var r: int = 0
