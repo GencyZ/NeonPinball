@@ -203,7 +203,10 @@ func set_active_gate(gate_id: StringName) -> void:
 	$Hud.set_gate_label(String(gate_id))
 
 func set_entry(edge: int, t: float) -> void:
-	_entry_edge = edge
+	if edge != _entry_edge:
+		_entry_edge = edge
+		if not _has_ball:
+			_rebuild_wall_segs(false)   # open new gate, close old one
 	_entry_t = t
 
 func gate_axis() -> int:
