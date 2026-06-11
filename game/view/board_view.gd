@@ -1,7 +1,7 @@
 extends Node2D
 
 const DT := 1.0 / 120.0
-const GATE_DIST := 80.0
+const GATE_DIST := 0.0
 const PEG_ANIM_DUR := 0.18      # peg hit pop duration (s)
 const PEG_ANIM_SCALE := 0.5     # extra radius at pop peak (1.0 -> 1.5x)
 const RunManagerScript := preload("res://run/run_manager.gd")
