@@ -83,6 +83,9 @@ func advance(input: Dictionary = {}) -> void:
         Phase.RUN_WIN, Phase.RUN_LOSE:
             _reset()
 
+func reset_run() -> void:
+    _reset()
+
 func spend_launch() -> void:
     state[&"launches_left"] = maxi(0, state[&"launches_left"] - 1)
 
