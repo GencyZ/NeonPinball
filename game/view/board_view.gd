@@ -130,9 +130,9 @@ const FUNNEL_REST := 0.05
 const CHANNEL_REST := 0.65
 
 const _GATE_LOCAL := {
-	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 115),   Vector2(0, 155)],
-	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 115),  Vector2(540, 155)],
-	EntryResolver.BoardEdge.TOP:   [Vector2(195, 0),    Vector2(255, 0)],
+	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 105),   Vector2(0, 165)],    # 60px wide, center y=135
+	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 105),  Vector2(540, 165)],  # 60px wide, center y=135
+	EntryResolver.BoardEdge.TOP:   [Vector2(240, 0),    Vector2(300, 0)],    # 60px wide, center x=270→actual 405
 }
 
 func _funnel_segs() -> Array:
@@ -418,6 +418,9 @@ func _on_all_settled() -> void:
 	_has_ball = false; _acc = 0.0
 	_active_balls.clear()
 	_prev_positions.clear(); _curr_positions.clear()
+	# Reopen the active gate so it shows green and is passable for the next launch
+	_gate_applied = false
+	_rebuild_wall_segs(false)
 	_sync_hud()
 	# Auto-advance when launches exhausted
 	if RunMan.launches_exhausted():

@@ -6,7 +6,7 @@ enum BoardEdge { TOP, LEFT, RIGHT }
 const LAUNCHER_T := {
 	BoardEdge.LEFT:  0.150,   # local y=135 / 900
 	BoardEdge.RIGHT: 0.150,
-	BoardEdge.TOP:   0.417,   # local x=225 / 540
+	BoardEdge.TOP:   0.500,   # local x=270 / 540 → actual x=405, aligns with LAUNCHER_POS
 }
 
 # Launcher canvas positions (fixed; outside _rect) — used by draw layer
