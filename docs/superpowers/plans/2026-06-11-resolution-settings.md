@@ -1,6 +1,6 @@
 # 分辨率设置 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在主菜单加分辨率选择（小/中/大三档），玩家点选后窗口立即变大/小，设置持久化到磁盘，下次启动自动恢复。游戏逻辑和 UI 坐标完全不变——只靠 Godot `canvas_items` 拉伸模式自动等比缩放。
 
@@ -92,7 +92,7 @@ DisplayServer.window_set_position(
 
 ## Task 1：project.godot 开启拉伸模式
 
-- [ ] **修改** `project.godot` 的 `[display]` 节：
+- [x] **修改** `project.godot` 的 `[display]` 节：
 
   **改前：**
   ```ini
@@ -117,13 +117,13 @@ DisplayServer.window_set_position(
   > - `stretch/mode=canvas_items`：Godot 把 540×900 内容等比缩放到实际窗口
   > - `stretch/aspect=keep`：保持宽高比，两侧留黑边（不拉伸变形）
 
-- [ ] **运行测试**，确认拉伸模式不破坏任何已有测试：
+- [x] **运行测试**，确认拉伸模式不破坏任何已有测试：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
   **预期：** 150 个测试全部通过，退出码 0。
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add project.godot
   git -C D:/NeonPinball/game commit -m "feat: enable canvas_items stretch mode, default window 810x1350"
@@ -133,7 +133,7 @@ DisplayServer.window_set_position(
 
 ## Task 2：SettingsSystem — 持久化窗口尺寸
 
-- [ ] **新建** `run/settings_system.gd`（TAB 缩进）：
+- [x] **新建** `run/settings_system.gd`（TAB 缩进）：
 
   ```gdscript
   class_name SettingsSystem extends RefCounted
@@ -172,7 +172,7 @@ DisplayServer.window_set_position(
       return "%d×%d" % [size.x, size.y]
   ```
 
-- [ ] **新建测试文件** `tests/test_settings_system.gd`（TAB 缩进）：
+- [x] **新建测试文件** `tests/test_settings_system.gd`（TAB 缩进）：
 
   ```gdscript
   extends GutTest
@@ -205,12 +205,12 @@ DisplayServer.window_set_position(
 
   > `test_save_and_load_round_trip` 会写 `user://settings.cfg`（headless 模式下路径在系统临时目录），测试完无需清理，GUT 环境隔离。
 
-- [ ] **运行测试**，预期 150 → 155（新增 5 个）：
+- [x] **运行测试**，预期 150 → 155（新增 5 个）：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add run/settings_system.gd tests/test_settings_system.gd
   git -C D:/NeonPinball/game commit -m "feat: SettingsSystem — persist window size to settings.cfg"
@@ -220,7 +220,7 @@ DisplayServer.window_set_position(
 
 ## Task 3：主菜单加分辨率选择
 
-- [ ] **修改** `view/main_menu.gd`：
+- [x] **修改** `view/main_menu.gd`：
 
   在文件顶部 preload 区追加：
   ```gdscript
@@ -283,12 +283,12 @@ DisplayServer.window_set_position(
 
   > 点击分辨率档位后：①保存设置 ②立即改变窗口 ③ `goto_menu()` 重载主菜单刷新选中状态（Disabled 按钮高亮当前档）。
 
-- [ ] **运行测试**，预期仍为 155（主菜单改动无新纯逻辑测试，冒烟用既有 `test_menu_scene_loads_without_error`）：
+- [x] **运行测试**，预期仍为 155（主菜单改动无新纯逻辑测试，冒烟用既有 `test_menu_scene_loads_without_error`）：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/main_menu.gd
   git -C D:/NeonPinball/game commit -m "feat: resolution picker in main menu (S/M/L presets, persisted)"
@@ -310,14 +310,14 @@ DisplayServer.window_set_position(
 
 ## 自检清单
 
-- [ ] 150 个基线测试仍全部通过
-- [ ] 新增 5 个测试全部通过（共 155）
-- [ ] 游戏启动进入主菜单，窗口为上次保存的尺寸（默认 810×1350）
-- [ ] 主菜单显示三个分辨率按钮，当前档位为 Disabled 状态
-- [ ] 点击其他档位 → 窗口立即变大/小 → 主菜单刷新 → 新档位 Disabled
-- [ ] 退出游戏重新启动 → 恢复上次选择的分辨率
-- [ ] 局内游戏画面比例正确（540×900 内容等比缩放，不变形）
-- [ ] 无回归（既有测试全绿）
+- [x] 150 个基线测试仍全部通过
+- [x] 新增 5 个测试全部通过（共 155）
+- [x] 游戏启动进入主菜单，窗口为上次保存的尺寸（默认 810×1350）
+- [x] 主菜单显示三个分辨率按钮，当前档位为 Disabled 状态
+- [x] 点击其他档位 → 窗口立即变大/小 → 主菜单刷新 → 新档位 Disabled
+- [x] 退出游戏重新启动 → 恢复上次选择的分辨率
+- [x] 局内游戏画面比例正确（540×900 内容等比缩放，不变形）
+- [x] 无回归（既有测试全绿）
 
 ---
 
