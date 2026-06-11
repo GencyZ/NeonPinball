@@ -29,11 +29,10 @@ static func derive(master: int, tag: int) -> DeterministicRng:
     return DeterministicRng.new(master ^ _splitmix64(tag))
 
 static func _splitmix64(x: int) -> int:
-    # Split 64-bit constants into two 32-bit halves to avoid GDScript signed-int64 literal overflow.
-    # (0xBF58476D << 32) | 0x1CE4E5B9 == 0xBF58476D1CE4E5B9
-    # (0x94D049BB << 32) | 0x133111EB == 0x94D049BB133111EB
-    var k1: int = (0xBF58476D << 32) | 0x1CE4E5B9
-    var k2: int = (0x94D049BB << 32) | 0x133111EB
+    # Use bitwise-NOT of the positive complements to express the splitmix64
+    # mixing constants without triggering GDScript signed-int64 literal overflow.
+    var k1: int = ~0x40A7B892E31B1A46   # bitwise complement = splitmix64 constant 1
+    var k2: int = ~0x6B2FB644ECCEEE14   # bitwise complement = splitmix64 constant 2
     x = ((x ^ (x >> 30)) * k1) & 0x7FFFFFFFFFFFFFFF
     x = ((x ^ (x >> 27)) * k2) & 0x7FFFFFFFFFFFFFFF
     return x ^ (x >> 31)
