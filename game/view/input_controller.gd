@@ -15,7 +15,7 @@ func _ready() -> void:
 	_board = get_node(board_path)
 
 func _process(delta: float) -> void:
-	if _board._has_ball:
+	if _board._has_ball or _board._is_transitioning:
 		_board.prediction_pts.clear()
 		_board.prediction_fans.clear()
 		return
@@ -88,7 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB:
 				_edge = (_edge + 1) % 3
 			KEY_SPACE:
-				if cur_phase == RunManager.Phase.ROUND or cur_phase == RunManager.Phase.BOSS_ROUND:
+				if (cur_phase == RunManager.Phase.ROUND or cur_phase == RunManager.Phase.BOSS_ROUND) \
+						and not _board._is_transitioning:
 					var r2: Rect2 = _board.rect
 					_board.launch(EntryResolver.make_ball(_edge, EntryResolver.LAUNCHER_T[_edge], _aim, SPEED, BALL_RADIUS, r2))
 			KEY_1: _board.set_active_gate(&"normal")
@@ -96,7 +97,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_3: _board.set_active_gate(&"scatter_angle")
 			KEY_4: _board.set_active_gate(&"scatter_split")
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
+		if event.button_index == MOUSE_BUTTON_LEFT and not _board._is_transitioning:
 			var r: Rect2 = _board.rect
 			_board.launch(EntryResolver.make_ball(_edge, EntryResolver.LAUNCHER_T[_edge], _aim, SPEED, BALL_RADIUS, r))
 

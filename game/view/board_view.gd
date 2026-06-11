@@ -4,6 +4,10 @@ const DT := 1.0 / 120.0
 const GATE_DIST := 0.0
 const PEG_ANIM_DUR := 0.18      # peg hit pop duration (s)
 const PEG_ANIM_SCALE := 0.5     # extra radius at pop peak (1.0 -> 1.5x)
+const PEG_EXIT_DUR  := 0.4      # peg disappear animation (s)
+const PEG_ENTER_DUR := 0.4      # peg appear animation (s)
+const HALO_DUR      := 0.45     # expanding ring on peg hit (s)
+const HALO_EXPAND   := 38.0     # ring max expand beyond peg radius (px)
 const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
@@ -31,6 +35,11 @@ var _peg_anims: Dictionary = {}   # peg_id -> remaining pop-anim ttl
 
 var _launch_count := 0
 
+var _is_transitioning := false
+var _dying_pegs: Array = []         # [{data, ttl, max_ttl}] — visual shrink
+var _peg_enter_ttls: Dictionary = {} # peg_id → remaining ttl — visual grow
+var _peg_halos: Array = []           # [{pos, r0, r1, ttl, max_ttl, color}]
+
 var _juice
 var _last_settle_pos := Vector2.ZERO
 
@@ -50,7 +59,7 @@ var active_gate_def: GateDef:
 
 func _ready() -> void:
 	_rect = Rect2(135, 225, 540, 900)
-	_pegs = _build_honeycomb()
+	_pegs = _generate_pegs()
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)  # active gate open, others closed
 	_engine = ScoringEngine.new()
@@ -83,41 +92,73 @@ func _ready() -> void:
 	$Hud.shop_slot_pressed.connect(buy_shop_slot)
 	$Hud.shop_continue_pressed.connect(leave_shop)
 
-func _build_honeycomb() -> Array:
-	var list := []
+func _generate_pegs() -> Array:
+	var ante: int = RunMan.state[&"ante"]
+	var ria: int  = RunMan.state[&"round_in_ante"]
+	var depth := (ante - 1) * 3 + ria   # 0 (ante1 r1) … 23 (ante8 boss)
+	var rng := DeterministicRng.new(int(RunMan.state[&"master_seed"]) ^ (_launch_count * 2654435761))
+
+	var count := rng.range_int(12 + ante * 2, 16 + ante * 3)
+
+	# Placeable area: inside board, above funnel, with margins
+	var margin := 44.0
+	var area := Rect2(
+		_rect.position.x + margin,
+		_rect.position.y + margin + 80.0,   # extra top gap for channel walls
+		_rect.size.x - margin * 2.0,
+		740.0 - margin)                      # stop above funnel (local y=780)
+
+	var special_rate := minf(float(depth) / 23.0 * 0.55, 0.55)
+	var type_pool := _build_type_pool(depth)
+
+	var list: Array = []
+	var placed_pos: Array = []
+	var placed_rad: Array = []
 	var id := 0
-	var rows := 8; var cols := 7
-	var spacing := 64.0; var margin := 60.0
-	var sizes := [7.0, 10.0, 13.0]
-	var scores := [3.0, 5.0, 8.0]
-	for r in rows:
-		var y := _rect.position.y + margin + 140.0 + r * spacing
-		var x_off := (r % 2) * spacing * 0.5
-		for c in cols:
-			var x := _rect.position.x + margin + x_off + c * spacing
-			if x < _rect.end.x - margin:
-				var tier := (r + c * 2) % 3
-				var peg_type: PegType
-				if   (r * 7  + c) % 7  == 3:  peg_type = GameDB.peg_types[&"mult"]
-				elif (r * 11 + c) % 19 == 7:  peg_type = GameDB.peg_types[&"chain"]
-				elif (r * 13 + c) % 31 == 5:  peg_type = GameDB.peg_types[&"bomb"]
-				elif (r * 9  + c) % 23 == 4:  peg_type = GameDB.peg_types[&"freeze"]
-				elif (r * 17 + c) % 47 == 9:  peg_type = GameDB.peg_types[&"jackpot"]
-				elif (r * 19 + c) % 53 == 11: peg_type = GameDB.peg_types[&"life"]
-				elif (r * 23 + c) % 37 == 6:  peg_type = GameDB.peg_types[&"poison"]
-				elif (r * 29 + c) % 41 == 3:  peg_type = GameDB.peg_types[&"magnet"]
-				else:                          peg_type = GameDB.peg_types[&"normal"]
-				list.append({&"id": id, &"pos": Vector2(x, y),
-							&"radius": sizes[tier], &"base_score": scores[tier],
-							&"type": peg_type, &"frozen": false, &"poisoned": false})
-				id += 1
-	# Portal: 固定将第 5、45 号钉配对
-	if list.size() > 45:
-		list[5][&"type"]         = GameDB.peg_types[&"portal"]
-		list[5][&"portal_pair"]  = 45
-		list[45][&"type"]        = GameDB.peg_types[&"portal"]
-		list[45][&"portal_pair"] = 5
+	var attempts := 0
+
+	while list.size() < count and attempts < count * 30:
+		attempts += 1
+		var r := rng.range_float(6.0, 15.0)
+		var pos := Vector2(
+			rng.range_float(area.position.x + r, area.end.x - r),
+			rng.range_float(area.position.y + r, area.end.y - r))
+
+		var too_close := false
+		for j in placed_pos.size():
+			if pos.distance_to(placed_pos[j]) < r + placed_rad[j] + 18.0:
+				too_close = true; break
+		if too_close:
+			continue
+
+		var peg_type: PegType
+		if type_pool.size() > 0 and rng.next_float() < special_rate:
+			peg_type = type_pool[rng.range_int(0, type_pool.size())]
+		else:
+			peg_type = GameDB.peg_types[&"normal"]
+
+		list.append({&"id": id, &"pos": pos, &"radius": r,
+					 &"base_score": r * 0.6, &"type": peg_type,
+					 &"frozen": false, &"poisoned": false})
+		placed_pos.append(pos)
+		placed_rad.append(r)
+		id += 1
 	return list
+
+func _build_type_pool(depth: int) -> Array:
+	var pool: Array = []
+	if depth >= 3:  pool.append(GameDB.peg_types[&"mult"])
+	if depth >= 7:  pool.append(GameDB.peg_types[&"chain"])
+	if depth >= 11:
+		pool.append(GameDB.peg_types[&"bomb"])
+		pool.append(GameDB.peg_types[&"freeze"])
+	if depth >= 15:
+		pool.append(GameDB.peg_types[&"jackpot"])
+		pool.append(GameDB.peg_types[&"poison"])
+	if depth >= 19:
+		pool.append(GameDB.peg_types[&"life"])
+		pool.append(GameDB.peg_types[&"magnet"])
+	return pool
 
 func _make_sim(pegs: Array) -> BallSimulation:
 	return BallSimulation.new(_rect, pegs, {
@@ -374,6 +415,9 @@ func _process(delta: float) -> void:
 								_score_peg(hit_peg)
 								_trigger_magnet(hit_peg)
 						var flash_color: Color = hit_type.glow if hit_type != null else Color.from_hsv(randf(), 0.85, 1.0)
+						_peg_halos.append({&"pos": hit_peg[&"pos"],
+							&"r0": hit_peg[&"radius"], &"r1": hit_peg[&"radius"] + HALO_EXPAND,
+							&"ttl": HALO_DUR, &"max_ttl": HALO_DUR, &"color": flash_color})
 						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
 					else:
 						_score_ctx.pegs_hit += 1
@@ -406,6 +450,17 @@ func _process(delta: float) -> void:
 			_peg_anims[pid] -= delta
 			if _peg_anims[pid] <= 0.0:
 				_peg_anims.erase(pid)
+	# Transition + halo animations run regardless of ball state
+	for i in range(_dying_pegs.size() - 1, -1, -1):
+		_dying_pegs[i][&"ttl"] -= delta
+	for pid in _peg_enter_ttls.keys():
+		_peg_enter_ttls[pid] -= delta
+		if _peg_enter_ttls[pid] <= 0.0:
+			_peg_enter_ttls.erase(pid)
+	for i in range(_peg_halos.size() - 1, -1, -1):
+		_peg_halos[i][&"ttl"] -= delta
+		if _peg_halos[i][&"ttl"] <= 0.0:
+			_peg_halos.remove_at(i)
 	_juice.update(delta)
 	$Camera2D.offset = _juice.camera_offset()
 	Engine.time_scale = _juice.time_scale()
@@ -417,18 +472,41 @@ func _on_all_settled() -> void:
 	_juice.on_settle(_last_settle_pos, score, RunMan.launches_exhausted())
 	$Hud.add_score(score)
 	RunMan.add_launch_score(score)
-	# Clean up ball state first, before any phase transition
 	_has_ball = false; _acc = 0.0
 	_active_balls.clear()
 	_prev_positions.clear(); _curr_positions.clear()
-	# Reopen the active gate so it shows green and is passable for the next launch
 	_gate_applied = false
 	_rebuild_wall_segs(false)
 	_sync_hud()
-	# Auto-advance when launches exhausted
 	if RunMan.launches_exhausted():
-		RunMan.advance()   # ROUND/BOSS_ROUND → ANTE_CLEAR or RUN_LOSE
+		RunMan.advance()
 		_handle_phase_transition()
+	else:
+		_start_peg_transition()
+
+func _start_peg_transition() -> void:
+	_is_transitioning = true
+	_dying_pegs.clear()
+	for peg in _pegs:
+		_dying_pegs.append({&"data": peg.duplicate(), &"ttl": PEG_EXIT_DUR, &"max_ttl": PEG_EXIT_DUR})
+	_pegs.clear()
+	_sim = _make_sim(_pegs)
+	_rebuild_wall_segs(false)
+	get_tree().create_timer(PEG_EXIT_DUR).timeout.connect(_on_peg_exit_done)
+
+func _on_peg_exit_done() -> void:
+	_dying_pegs.clear()
+	_pegs = _generate_pegs()
+	_sim = _make_sim(_pegs)
+	_rebuild_wall_segs(false)
+	_peg_enter_ttls.clear()
+	for peg in _pegs:
+		_peg_enter_ttls[peg[&"id"]] = PEG_ENTER_DUR
+	get_tree().create_timer(PEG_ENTER_DUR).timeout.connect(_on_peg_enter_done)
+
+func _on_peg_enter_done() -> void:
+	_peg_enter_ttls.clear()
+	_is_transitioning = false
 
 func _handle_phase_transition() -> void:
 	var phase: int = RunMan.state[&"phase"]
@@ -494,7 +572,7 @@ func leave_shop() -> void:
 	$Hud.hide_shop()
 	RunMan.advance()   # SHOP → ROUND (calls _start_round inside)
 	# Rebuild board for the new round
-	_pegs = _build_honeycomb()
+	_pegs = _generate_pegs()
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(_gate_applied)
 	_apply_boss_mod()
@@ -539,21 +617,43 @@ func _draw_walls() -> void:
 	draw_circle(EntryResolver.LAUNCHER_POS[_entry_edge], 4.0, Color(1.0, 0.3, 1.0, 0.9))
 
 func _draw() -> void:
+	# Dying pegs: shrink + fade out
+	for dp in _dying_pegs:
+		var frac := maxf(dp[&"ttl"] / dp[&"max_ttl"], 0.0)
+		var r: float = dp[&"data"][&"radius"] * frac
+		if r < 0.3:
+			continue
+		var pt: PegType = dp[&"data"].get(&"type")
+		var col := pt.glow if pt != null else Color(0.2, 0.9, 1.0)
+		draw_circle(dp[&"data"][&"pos"], r, Color(col.r, col.g, col.b, frac))
+
+	# Active pegs: enter-grow + hit-pop
 	for peg in _pegs:
 		var pt: PegType = peg.get(&"type")
 		var col := Color(0.2, 0.9, 1.0)
-		if pt != null:
-			col = pt.glow
-		if peg.get(&"frozen", false):
-			col = col.lerp(Color(0.6, 0.9, 1.0), 0.6)
-		if peg.get(&"poisoned", false):
-			col = col.lerp(Color(0.3, 0.8, 0.2), 0.5)
+		if pt != null: col = pt.glow
+		if peg.get(&"frozen", false):   col = col.lerp(Color(0.6, 0.9, 1.0), 0.6)
+		if peg.get(&"poisoned", false): col = col.lerp(Color(0.3, 0.8, 0.2), 0.5)
 		var radius: float = peg[&"radius"]
+		var enter_ttl: float = _peg_enter_ttls.get(peg[&"id"], 0.0)
+		if enter_ttl > 0.0:
+			radius *= 1.0 - enter_ttl / PEG_ENTER_DUR   # 0 → full
 		var anim_ttl: float = _peg_anims.get(peg[&"id"], 0.0)
 		if anim_ttl > 0.0:
 			var prog := 1.0 - anim_ttl / PEG_ANIM_DUR
 			radius *= 1.0 + PEG_ANIM_SCALE * sin(prog * PI)
+		if radius < 0.3:
+			continue
 		draw_circle(peg[&"pos"], radius, col)
+
+	# Halos: expanding ring on peg hit
+	for h in _peg_halos:
+		var t := 1.0 - h[&"ttl"] / h[&"max_ttl"]
+		var hr := lerpf(h[&"r0"], h[&"r1"], t)
+		var alpha := (h[&"ttl"] / h[&"max_ttl"]) * 0.8
+		var c: Color = h[&"color"]
+		draw_arc(h[&"pos"], hr, 0.0, TAU, 32, Color(c.r, c.g, c.b, alpha), 2.5)
+
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
@@ -569,7 +669,7 @@ func _draw() -> void:
 	for f in _flashes:
 		var a: float = f[&"ttl"] / f[&"max_ttl"]
 		var base_col: Color = f.get(&"color", Color(1.0, 1.0, 0.6))
-		draw_circle(f[&"pos"], 16.0, Color(base_col.r, base_col.g, base_col.b, a * 0.8))
+		draw_circle(f[&"pos"], 7.0, Color(base_col.r, base_col.g, base_col.b, a * 0.8))
 	for p in _juice.particles.particles:
 		var pa: float = p[&"ttl"] / p[&"max_ttl"]
 		var pc: Color = p[&"color"]
