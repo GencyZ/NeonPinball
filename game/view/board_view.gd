@@ -96,11 +96,26 @@ func _build_honeycomb() -> Array:
 			var x := margin + x_off + c * spacing
 			if x < _rect.end.x - margin:
 				var tier := (r + c * 2) % 3
-				var peg_type: PegType = GameDB.peg_types[&"mult"] if (r * 7 + c) % 7 == 3 else GameDB.peg_types[&"normal"]
+				var peg_type: PegType
+				if   (r * 7  + c) % 7  == 3:  peg_type = GameDB.peg_types[&"mult"]
+				elif (r * 11 + c) % 19 == 7:  peg_type = GameDB.peg_types[&"chain"]
+				elif (r * 13 + c) % 31 == 5:  peg_type = GameDB.peg_types[&"bomb"]
+				elif (r * 9  + c) % 23 == 4:  peg_type = GameDB.peg_types[&"freeze"]
+				elif (r * 17 + c) % 47 == 9:  peg_type = GameDB.peg_types[&"jackpot"]
+				elif (r * 19 + c) % 53 == 11: peg_type = GameDB.peg_types[&"life"]
+				elif (r * 23 + c) % 37 == 6:  peg_type = GameDB.peg_types[&"poison"]
+				elif (r * 29 + c) % 41 == 3:  peg_type = GameDB.peg_types[&"magnet"]
+				else:                          peg_type = GameDB.peg_types[&"normal"]
 				list.append({&"id": id, &"pos": Vector2(x, y),
 							&"radius": sizes[tier], &"base_score": scores[tier],
-							&"type": peg_type})
+							&"type": peg_type, &"frozen": false, &"poisoned": false})
 				id += 1
+	# Portal: 固定将第 5、45 号钉配对
+	if list.size() > 45:
+		list[5][&"type"]         = GameDB.peg_types[&"portal"]
+		list[5][&"portal_pair"]  = 45
+		list[45][&"type"]        = GameDB.peg_types[&"portal"]
+		list[45][&"portal_pair"] = 5
 	return list
 
 func _make_sim(pegs: Array) -> BallSimulation:
@@ -413,8 +428,12 @@ func _draw() -> void:
 	for peg in _pegs:
 		var pt: PegType = peg.get(&"type")
 		var col := Color(0.2, 0.9, 1.0)
-		if pt != null and pt.behavior == PegType.Behavior.MULT:
-			col = Color(1.0, 0.55, 0.0)
+		if pt != null:
+			col = pt.glow
+		if peg.get(&"frozen", false):
+			col = col.lerp(Color(0.6, 0.9, 1.0), 0.6)
+		if peg.get(&"poisoned", false):
+			col = col.lerp(Color(0.3, 0.8, 0.2), 0.5)
 		var radius: float = peg[&"radius"]
 		var anim_ttl: float = _peg_anims.get(peg[&"id"], 0.0)
 		if anim_ttl > 0.0:
