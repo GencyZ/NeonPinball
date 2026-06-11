@@ -324,6 +324,25 @@ func _show_shop_ui() -> void:
 	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"])
 	_sync_hud()
 
+func buy_shop_slot(slot: int) -> void:
+	if _active_shop == null:
+		return
+	var money_ref := [RunMan.state[&"money"]]
+	var inv := {&"items": []}
+	var ok := _active_shop.buy(slot, inv, money_ref)
+	if not ok:
+		return
+	RunMan.state[&"money"] = money_ref[0]
+	for item in inv[&"items"]:
+		if item is TriggerDef:
+			var equipped: Array = RunMan.state[&"equipped_triggers"]
+			if equipped.size() < 5:
+				equipped.append(item.id)
+		elif item is GateDef:
+			RunMan.state[&"equipped_gate"] = item.id
+	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"])
+	_sync_hud()
+
 func leave_shop() -> void:
 	if _active_shop == null:
 		return

@@ -86,31 +86,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_board.launch(EntryResolver.make_ball(_edge, _t, _aim, SPEED, BALL_RADIUS, r))
 
 func _handle_shop_key(keycode: Key) -> void:
-	var shop: Shop = _board._active_shop
-	if shop == null:
-		return
-	var slot := -1
 	match keycode:
-		KEY_1: slot = 0
-		KEY_2: slot = 1
-		KEY_3: slot = 2
-		KEY_4: slot = 3
+		KEY_1: _board.buy_shop_slot(0)
+		KEY_2: _board.buy_shop_slot(1)
+		KEY_3: _board.buy_shop_slot(2)
+		KEY_4: _board.buy_shop_slot(3)
 		KEY_SPACE, KEY_ENTER, KEY_KP_ENTER:
 			_board.leave_shop()
-			return
-	if slot < 0:
-		return
-	var money_ref := [RunMan.state[&"money"]]
-	var inv := {&"items": []}
-	var ok := shop.buy(slot, inv, money_ref)
-	if ok:
-		RunMan.state[&"money"] = money_ref[0]
-		for item in inv[&"items"]:
-			if item is TriggerDef:
-				var equipped: Array = RunMan.state[&"equipped_triggers"]
-				if equipped.size() < 5:
-					equipped.append(item.id)
-			elif item is GateDef:
-				RunMan.state[&"equipped_gate"] = item.id
-		_board.get_node("Hud").show_shop(shop.offerings, RunMan.state[&"money"])
-		_board._sync_hud()
