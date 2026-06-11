@@ -648,9 +648,9 @@ func _draw() -> void:
 
 	# Halos: expanding ring on peg hit
 	for h in _peg_halos:
-		var t := 1.0 - h[&"ttl"] / h[&"max_ttl"]
-		var hr := lerpf(h[&"r0"], h[&"r1"], t)
-		var alpha := (h[&"ttl"] / h[&"max_ttl"]) * 0.8
+		var t: float = 1.0 - float(h[&"ttl"]) / float(h[&"max_ttl"])
+		var hr: float = lerpf(float(h[&"r0"]), float(h[&"r1"]), t)
+		var alpha: float = float(h[&"ttl"]) / float(h[&"max_ttl"]) * 0.8
 		var c: Color = h[&"color"]
 		draw_arc(h[&"pos"], hr, 0.0, TAU, 32, Color(c.r, c.g, c.b, alpha), 2.5)
 
