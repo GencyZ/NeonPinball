@@ -475,56 +475,6 @@ func leave_shop() -> void:
 	_refresh_equipped()
 	_sync_hud()
 
-func _draw_gate() -> void:
-	var axis := gate_axis()
-	var threshold := gate_threshold()
-	var half_w := 25.0  # half-width of gate channel
-
-	# Gate color by type
-	var gate_color := Color(0.8, 0.8, 0.8, 0.7)
-	match _active_gate_def.kind:
-		GateDef.Kind.ACCEL:
-			gate_color = Color(1.0, 0.8, 0.0, 0.85)
-		GateDef.Kind.SCATTER_ANGLE:
-			gate_color = Color(0.0, 0.8, 1.0, 0.85)
-		GateDef.Kind.SCATTER_SPLIT:
-			gate_color = Color(0.8, 0.2, 1.0, 0.85)
-
-	var p1: Vector2; var p2: Vector2
-	var entry_pos: Vector2 = EntryResolver.resolve(_entry_edge, _entry_t, _rect)[&"pos"]
-
-	match axis:
-		0:  # TOP: horizontal gate line
-			p1 = Vector2(entry_pos.x - half_w, threshold)
-			p2 = Vector2(entry_pos.x + half_w, threshold)
-		1:  # LEFT: vertical gate line
-			p1 = Vector2(threshold, entry_pos.y - half_w)
-			p2 = Vector2(threshold, entry_pos.y + half_w)
-		_:  # RIGHT: vertical gate line
-			p1 = Vector2(threshold, entry_pos.y - half_w)
-			p2 = Vector2(threshold, entry_pos.y + half_w)
-
-	# Glow (wide, semi-transparent)
-	draw_line(p1, p2, Color(gate_color.r, gate_color.g, gate_color.b, 0.3), 8.0)
-	# Core (bright, thin)
-	draw_line(p1, p2, gate_color, 2.5)
-
-	# Channel walls (thin lines from edge to gate)
-	var edge_p1: Vector2; var edge_p2: Vector2
-	match axis:
-		0:
-			edge_p1 = Vector2(entry_pos.x - half_w, _rect.position.y)
-			edge_p2 = Vector2(entry_pos.x + half_w, _rect.position.y)
-		1:
-			edge_p1 = Vector2(_rect.position.x, entry_pos.y - half_w)
-			edge_p2 = Vector2(_rect.position.x, entry_pos.y + half_w)
-		_:
-			edge_p1 = Vector2(_rect.end.x, entry_pos.y - half_w)
-			edge_p2 = Vector2(_rect.end.x, entry_pos.y + half_w)
-
-	draw_line(edge_p1, p1, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
-	draw_line(edge_p2, p2, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
-
 func _draw_walls() -> void:
 	var cyan   := Color(0.0, 0.9, 1.0, 0.9)
 	var g_open := Color(0.0, 1.0, 0.5, 0.9)
