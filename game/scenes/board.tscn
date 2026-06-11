@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://drrdpjtrhjtij"]
+
+[ext_resource type="Script" uid="uid://7ljhwdwqiqr3" path="res://view/board_view.gd" id="1_tx6nw"]
+[ext_resource type="Script" uid="uid://c00ciwxwm6l55" path="res://view/hud.gd" id="2_nglv8"]
+[ext_resource type="Script" uid="uid://co48iv0cy8ixc" path="res://view/input_controller.gd" id="3_nglv8"]
+
+[node name="BoardView" type="Node2D" unique_id=450071599]
+script = ExtResource("1_tx6nw")
+
+[node name="Hud" type="CanvasLayer" parent="." unique_id=949947835]
+script = ExtResource("2_nglv8")
+
+[node name="InputController" type="Node" parent="." unique_id=101546304]
+script = ExtResource("3_nglv8")
+board_path = NodePath("..")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1767086248]
+position = Vector2(270, 450)
