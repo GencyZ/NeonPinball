@@ -36,10 +36,14 @@ static func resolve(edge: int, t: float, rect: Rect2) -> Dictionary:
 				&"normal": Vector2.LEFT
 			}
 
-# 瞄准：法线旋转 aim_offset 弧度，夹紧在 ±60° 朝内锥角内。
-static func make_ball(edge: int, t: float, aim_offset: float,
+# 通道方向：从发射器位置指向门中心，归一化。
+static func channel_dir(edge: int, rect: Rect2) -> Vector2:
+	var gate_center: Vector2 = resolve(edge, LAUNCHER_T[edge], rect)[&"pos"]
+	return (gate_center - LAUNCHER_POS[edge]).normalized()
+
+# 球从发射器位置生成，沿通道方向旋转 aim_offset 弧度，夹紧在 ±20°。
+static func make_ball(edge: int, _t: float, aim_offset: float,
 					speed: float, radius: float, rect: Rect2) -> BallState:
-	var r := resolve(edge, t, rect)
-	var clamped := clampf(aim_offset, -PI / 3.0, PI / 3.0)
-	var dir: Vector2 = r[&"normal"].rotated(clamped)
-	return BallState.new(r[&"pos"], dir * speed, radius)
+	var clamped := clampf(aim_offset, -PI / 9.0, PI / 9.0)
+	var dir: Vector2 = channel_dir(edge, rect).rotated(clamped)
+	return BallState.new(LAUNCHER_POS[edge], dir * speed, radius)

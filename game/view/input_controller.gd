@@ -22,25 +22,24 @@ func _process(delta: float) -> void:
 
 	var r: Rect2 = _board.rect
 	var t: float = EntryResolver.LAUNCHER_T[_edge]
-	var entry: Dictionary = EntryResolver.resolve(_edge, t, r)
-	var gate_pos: Vector2 = entry[&"pos"]
-	var inward_n: Vector2 = entry[&"normal"]
+	var chan_dir: Vector2 = EntryResolver.channel_dir(_edge, r)
+	var launcher_pos: Vector2 = EntryResolver.LAUNCHER_POS[_edge]
 
-	# Mouse sets aim angle when it moves
+	# Mouse sets aim angle relative to channel centerline
 	var mouse: Vector2 = _board.get_local_mouse_position()
 	if mouse.distance_squared_to(_last_mouse) > 1.0:
 		_last_mouse = mouse
-		var to_mouse := mouse - gate_pos
+		var to_mouse := mouse - launcher_pos
 		if to_mouse.length_squared() > 1.0:
-			_aim = inward_n.angle_to(to_mouse.normalized())
+			_aim = chan_dir.angle_to(to_mouse.normalized())
 
-	# A/D fine-tunes
+	# A/D fine-tunes at 45°/s
 	if Input.is_key_pressed(KEY_A):
-		_aim -= deg_to_rad(90.0) * delta
+		_aim -= deg_to_rad(45.0) * delta
 	if Input.is_key_pressed(KEY_D):
-		_aim += deg_to_rad(90.0) * delta
+		_aim += deg_to_rad(45.0) * delta
 
-	_aim = clampf(_aim, -PI / 3.0, PI / 3.0)
+	_aim = clampf(_aim, -PI / 9.0, PI / 9.0)  # ±20°
 
 	_board.set_entry(_edge, t)
 

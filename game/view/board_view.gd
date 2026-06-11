@@ -127,6 +127,7 @@ func _make_sim(pegs: Array) -> BallSimulation:
 
 const WALL_REST := 0.82
 const FUNNEL_REST := 0.05
+const CHANNEL_REST := 0.65
 
 const _GATE_LOCAL := {
 	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 115),   Vector2(0, 155)],
@@ -166,6 +167,24 @@ func _gate_seg(edge: int) -> Dictionary:
 	var g: Array = _GATE_LOCAL[edge]
 	return {&"a": o + g[0], &"b": o + g[1], &"restitution": WALL_REST}
 
+# 通道两侧平行墙段：从发射器两端连到门两端，完全平行于通道中心线。
+func _channel_segs(edge: int) -> Array:
+	var lp: Vector2 = EntryResolver.LAUNCHER_POS[edge]
+	var glocal: Array = _GATE_LOCAL[edge]
+	var gate_a: Vector2 = _rect.position + glocal[0]
+	var gate_b: Vector2 = _rect.position + glocal[1]
+	# 门边缘方向及半宽（即通道半宽）
+	var gate_vec: Vector2 = glocal[1] - glocal[0]
+	var gate_dir: Vector2 = gate_vec.normalized()
+	var hw: float = gate_vec.length() * 0.5
+	# 发射器两端点（沿门边缘方向偏移，使两侧墙平行）
+	var lp_a: Vector2 = lp + gate_dir * hw   # +side → gate_b
+	var lp_b: Vector2 = lp - gate_dir * hw   # -side → gate_a
+	return [
+		{&"a": lp_a, &"b": gate_b, &"restitution": CHANNEL_REST},
+		{&"a": lp_b, &"b": gate_a, &"restitution": CHANNEL_REST},
+	]
+
 func _rebuild_wall_segs(close_active_gate: bool) -> void:
 	var segs: Array = _funnel_segs()
 	for edge in [EntryResolver.BoardEdge.LEFT, EntryResolver.BoardEdge.TOP,
@@ -173,6 +192,7 @@ func _rebuild_wall_segs(close_active_gate: bool) -> void:
 		segs.append_array(_wall_segs_for_edge(edge))
 		if close_active_gate or edge != _entry_edge:
 			segs.append(_gate_seg(edge))
+		segs.append_array(_channel_segs(edge))
 	_sim.set_wall_segs(segs)
 
 func set_active_gate(gate_id: StringName) -> void:
@@ -500,15 +520,17 @@ func _draw_walls() -> void:
 		var seg := _gate_seg(edge)
 		draw_line(seg[&"a"], seg[&"b"], col, 3.0)
 
-	# Draw channel lines (visual only) for active launcher
-	var lp: Vector2 = EntryResolver.LAUNCHER_POS[_entry_edge]
-	var glocal: Array = _GATE_LOCAL[_entry_edge]
-	draw_line(o + glocal[0], lp, Color(cyan, 0.4), 1.5)
-	draw_line(o + glocal[1], lp, Color(cyan, 0.4), 1.5)
-
-	# Draw launcher indicator (crosshair circle)
-	draw_circle(lp, 8.0, Color(1.0, 0.3, 1.0, 0.9))
-	draw_circle(lp, 5.0, Color(0.1, 0.0, 0.15, 1.0))
+	# Draw channel walls for all launchers (active = full, inactive = dimmed)
+	for edge in [EntryResolver.BoardEdge.LEFT, EntryResolver.BoardEdge.TOP,
+				 EntryResolver.BoardEdge.RIGHT]:
+		var chan_segs: Array = _channel_segs(edge)
+		var col := cyan if edge == _entry_edge else Color(0.0, 0.9, 1.0, 0.3)
+		for seg in chan_segs:
+			draw_line(seg[&"a"], seg[&"b"], col, 2.5)
+		# Launcher end cap (closing bar across the launcher opening)
+		draw_line(chan_segs[0][&"a"], chan_segs[1][&"a"], col, 2.5)
+	# Active launcher center dot
+	draw_circle(EntryResolver.LAUNCHER_POS[_entry_edge], 4.0, Color(1.0, 0.3, 1.0, 0.9))
 
 func _draw() -> void:
 	for peg in _pegs:
