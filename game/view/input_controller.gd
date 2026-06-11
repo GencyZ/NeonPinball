@@ -6,8 +6,8 @@ const RunManagerScript := preload("res://run/run_manager.gd")
 
 var _board: Node2D
 var _edge: int = EntryResolver.BoardEdge.TOP
-var _t := 0.5
 var _aim := 0.0
+var _last_mouse := Vector2.INF
 const SPEED := 1500.0
 const BALL_RADIUS := 8.0
 
@@ -26,11 +26,13 @@ func _process(delta: float) -> void:
 	var gate_pos: Vector2 = entry[&"pos"]
 	var inward_n: Vector2 = entry[&"normal"]
 
-	# Mouse sets aim angle directly
+	# Mouse sets aim angle when it moves
 	var mouse: Vector2 = _board.get_local_mouse_position()
-	var to_mouse := mouse - gate_pos
-	if to_mouse.length_squared() > 1.0:
-		_aim = inward_n.angle_to(to_mouse.normalized())
+	if mouse.distance_squared_to(_last_mouse) > 1.0:
+		_last_mouse = mouse
+		var to_mouse := mouse - gate_pos
+		if to_mouse.length_squared() > 1.0:
+			_aim = inward_n.angle_to(to_mouse.normalized())
 
 	# A/D fine-tunes
 	if Input.is_key_pressed(KEY_A):
@@ -87,20 +89,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB:
 				_edge = (_edge + 1) % 3
 			KEY_SPACE:
-				var cur2: int = RunMan.state[&"phase"]
-				if cur2 == RunManager.Phase.ROUND or cur2 == RunManager.Phase.BOSS_ROUND:
-					var rr: Rect2 = _board.rect
-					var t_space: float = EntryResolver.LAUNCHER_T[_edge]
-					_board.launch(EntryResolver.make_ball(_edge, t_space, _aim, SPEED, BALL_RADIUS, rr))
+				if cur_phase == RunManager.Phase.ROUND or cur_phase == RunManager.Phase.BOSS_ROUND:
+					var r2: Rect2 = _board.rect
+					_board.launch(EntryResolver.make_ball(_edge, EntryResolver.LAUNCHER_T[_edge], _aim, SPEED, BALL_RADIUS, r2))
 			KEY_1: _board.set_active_gate(&"normal")
 			KEY_2: _board.set_active_gate(&"accel")
 			KEY_3: _board.set_active_gate(&"scatter_angle")
 			KEY_4: _board.set_active_gate(&"scatter_split")
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			var rr2: Rect2 = _board.rect
-			var t_click: float = EntryResolver.LAUNCHER_T[_edge]
-			_board.launch(EntryResolver.make_ball(_edge, t_click, _aim, SPEED, BALL_RADIUS, rr2))
+			var r: Rect2 = _board.rect
+			_board.launch(EntryResolver.make_ball(_edge, EntryResolver.LAUNCHER_T[_edge], _aim, SPEED, BALL_RADIUS, r))
 
 func _handle_shop_key(keycode: Key) -> void:
 	match keycode:

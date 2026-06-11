@@ -9,7 +9,7 @@ const LAUNCHER_T := {
 	BoardEdge.TOP:   0.417,   # local x=225 / 540
 }
 
-# Launcher canvas positions (fixed; outside _rect)
+# Launcher canvas positions (fixed; outside _rect) — used by draw layer
 const LAUNCHER_POS := {
 	BoardEdge.LEFT:  Vector2(55.0, 255.0),
 	BoardEdge.TOP:   Vector2(405.0, 112.0),
@@ -36,10 +36,10 @@ static func resolve(edge: int, t: float, rect: Rect2) -> Dictionary:
 				&"normal": Vector2.LEFT
 			}
 
-# 瞄准：法线旋转 aim_offset 弧度，夹紧在 ±80° 朝内锥角内。
+# 瞄准：法线旋转 aim_offset 弧度，夹紧在 ±60° 朝内锥角内。
 static func make_ball(edge: int, t: float, aim_offset: float,
 					speed: float, radius: float, rect: Rect2) -> BallState:
 	var r := resolve(edge, t, rect)
-	var clamped := clampf(aim_offset, -0.873, 0.873)  # ±50°
+	var clamped := clampf(aim_offset, -PI / 3.0, PI / 3.0)
 	var dir: Vector2 = r[&"normal"].rotated(clamped)
 	return BallState.new(r[&"pos"], dir * speed, radius)
