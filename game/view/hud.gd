@@ -12,9 +12,12 @@ var _label_launches: Label
 # ---- Shop panel ----
 var _shop_panel: PanelContainer
 var _shop_title: Label
-var _shop_slots: Array[Label] = []
-var _shop_hint: Label
+var _shop_slots: Array[Button] = []
+var _shop_continue_btn: Button
 var _shop_visible := false
+
+signal shop_slot_pressed(slot: int)
+signal shop_continue_pressed
 
 # ---- End-of-run buttons ----
 var _end_panel: Control
@@ -71,17 +74,20 @@ func _build_shop_panel() -> void:
 	vbox.add_child(_shop_title)
 
 	for i in 4:
-		var lbl := Label.new()
-		lbl.add_theme_font_size_override(&"font_size", 18)
-		vbox.add_child(lbl)
-		_shop_slots.append(lbl)
+		var btn := Button.new()
+		btn.add_theme_font_size_override(&"font_size", 17)
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var slot_idx := i
+		btn.pressed.connect(func(): shop_slot_pressed.emit(slot_idx))
+		vbox.add_child(btn)
+		_shop_slots.append(btn)
 
-	_shop_hint = Label.new()
-	_shop_hint.text = "Press 1-4 to buy  ·  Space to continue"
-	_shop_hint.add_theme_font_size_override(&"font_size", 14)
-	_shop_hint.modulate = Color(0.7, 0.7, 0.7)
-	_shop_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(_shop_hint)
+	_shop_continue_btn = Button.new()
+	_shop_continue_btn.text = "Continue →  (Space)"
+	_shop_continue_btn.add_theme_font_size_override(&"font_size", 16)
+	_shop_continue_btn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_continue_btn.pressed.connect(func(): shop_continue_pressed.emit())
+	vbox.add_child(_shop_continue_btn)
 
 # ---- Public API ----
 
@@ -105,9 +111,9 @@ func show_shop(offerings: Array, money: int) -> void:
 	_shop_visible = true
 	_shop_panel.visible = true
 
-	# Clear all 4 slots at start
 	for i in 4:
 		_shop_slots[i].text = ""
+		_shop_slots[i].disabled = false
 		_shop_slots[i].modulate = Color.WHITE
 
 	for i in mini(offerings.size(), 4):
@@ -118,10 +124,12 @@ func show_shop(offerings: Array, money: int) -> void:
 		var is_sold: bool = offer.get(&"sold", false)
 		if is_sold:
 			_shop_slots[i].text = "[%d] SOLD" % (i + 1)
+			_shop_slots[i].disabled = true
 			_shop_slots[i].modulate = Color(0.4, 0.4, 0.4)
 		else:
 			var can_afford := money >= price
 			_shop_slots[i].text = "[%d] %s  (%d gold)" % [i + 1, name_str, price]
+			_shop_slots[i].disabled = not can_afford
 			_shop_slots[i].modulate = Color(1, 1, 0.5) if can_afford else Color(0.5, 0.5, 0.5)
 
 func hide_shop() -> void:
