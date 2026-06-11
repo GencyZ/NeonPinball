@@ -274,17 +274,20 @@ func _process(delta: float) -> void:
 								_flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4, &"color": Color(1.0, 0.9, 0.0)})
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_events.resize(_event_cursor + 1)
 							PegType.Behavior.LIFE:
 								RunMan.state[&"launches_left"] += 1
 								_sync_hud()
 								_score_peg(hit_peg)
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_events.resize(_event_cursor + 1)
 							PegType.Behavior.POISON:
 								_score_peg(hit_peg)
 								_trigger_poison(hit_peg)
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_events.resize(_event_cursor + 1)
 							PegType.Behavior.PORTAL:
 								_trigger_portal(hit_peg, e[&"pos"])
 							PegType.Behavior.MAGNET:
@@ -542,6 +545,8 @@ func _trigger_bomb(bomb_peg: Dictionary) -> void:
 	for peg in to_remove:
 		_pegs.erase(peg)
 	_sim = _make_sim(_pegs)
+	# 清除旧 sim 预计算的事件（下标已失效），让下一帧用新 sim 重新生成
+	_events.resize(_event_cursor + 1)
 	_juice.on_peg_hit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), true)
 
 func _trigger_freeze(freeze_peg: Dictionary) -> void:

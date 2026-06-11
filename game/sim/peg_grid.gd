@@ -13,10 +13,11 @@ func build(pegs: Array, rect: Rect2, cell_size: float) -> void:
 	_cells.resize(_cols * _rows)
 	for i in _cells.size():
 		_cells[i] = []
-	for peg in pegs:
+	for i in pegs.size():
+		var peg: Dictionary = pegs[i]
 		var cx := clampi(int((peg[&"pos"].x - rect.position.x) / cell_size), 0, _cols - 1)
 		var cy := clampi(int((peg[&"pos"].y - rect.position.y) / cell_size), 0, _rows - 1)
-		_cells[cy * _cols + cx].append(peg[&"id"])
+		_cells[cy * _cols + cx].append(i)  # 存数组下标，而非 peg[&"id"]
 
 # 返回 center 附近 radius 范围格子内的 peg_id，按 id 升序（保证确定性遍历）。
 func query_near(center: Vector2, radius: float) -> Array[int]:
