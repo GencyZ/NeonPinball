@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GameDB="*res://data/game_database.gd"
 RunMan="*res://run/run_manager.gd"
+SceneMan="*res://run/scene_manager.gd"
 
 [display]
 

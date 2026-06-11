@@ -19,3 +19,9 @@ func test_reset_run_matches_default() -> void:
 	mgr.reset_run()
 	assert_eq(mgr.state.hash(), RunManagerScript._make_default_state().hash())
 	mgr.free()
+
+func test_game_scene_path_exists() -> void:
+	assert_true(ResourceLoader.exists("res://scenes/board.tscn"))
+
+func test_scene_manager_script_loads() -> void:
+	assert_not_null(load("res://run/scene_manager.gd"))
