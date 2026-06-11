@@ -247,16 +247,56 @@ func _process(delta: float) -> void:
 			while _event_cursor < _events.size():
 				var e: Dictionary = _events[_event_cursor]
 				if e[&"type"] == SimEvent.PEG_HIT:
-					_score_ctx.pegs_hit += 1
-					var flash_color := Color.from_hsv(randf(), 0.85, 1.0)
 					var hit_peg_id: int = e[&"peg_id"]
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
 						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
-						var hit_type: PegType = _pegs[hit_peg_id].get(&"type")
-						if hit_type != null and hit_type.behavior == PegType.Behavior.MULT:
-							_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
-					_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
-					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": flash_color})
+						var hit_peg: Dictionary = _pegs[hit_peg_id]
+						var hit_type: PegType = hit_peg.get(&"type")
+						var behavior := hit_type.behavior if hit_type != null else PegType.Behavior.NORMAL
+						match behavior:
+							PegType.Behavior.NORMAL:
+								_score_peg(hit_peg)
+							PegType.Behavior.MULT:
+								_score_ctx.pegs_hit += 1
+								_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
+							PegType.Behavior.CHAIN:
+								_score_peg(hit_peg)
+								_trigger_chain(hit_peg)
+							PegType.Behavior.BOMB:
+								_trigger_bomb(hit_peg)
+							PegType.Behavior.FREEZE:
+								_score_peg(hit_peg)
+								_trigger_freeze(hit_peg)
+							PegType.Behavior.JACKPOT:
+								_score_peg(hit_peg)
+								var jackpot_mult := randf_range(1.0, 10.0)
+								_score_ctx.add(ScoreContext.KIND_ADD_MULT, jackpot_mult, &"jackpot")
+								_flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4, &"color": Color(1.0, 0.9, 0.0)})
+								if hit_type.one_shot:
+									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+							PegType.Behavior.LIFE:
+								RunMan.state[&"launches_left"] += 1
+								_sync_hud()
+								_score_peg(hit_peg)
+								if hit_type.one_shot:
+									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+							PegType.Behavior.POISON:
+								_score_peg(hit_peg)
+								_trigger_poison(hit_peg)
+								if hit_type.one_shot:
+									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+							PegType.Behavior.PORTAL:
+								_trigger_portal(hit_peg, e[&"pos"])
+							PegType.Behavior.MAGNET:
+								_score_peg(hit_peg)
+								_trigger_magnet(hit_peg)
+						var flash_color: Color = hit_type.glow if hit_type != null else Color.from_hsv(randf(), 0.85, 1.0)
+						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
+					else:
+						_score_ctx.pegs_hit += 1
+						var flash_color := Color.from_hsv(randf(), 0.85, 1.0)
+						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
+						_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": flash_color})
 				elif e[&"type"] == SimEvent.SETTLED:
 					_last_settle_pos = e[&"pos"]
 				elif e[&"type"] == SimEvent.BOUNCE:
@@ -465,3 +505,87 @@ func _draw() -> void:
 	for item in _juice.floaters.items:
 		var fa: float = _juice.floaters.alpha_of(item)
 		draw_string(font, item[&"pos"], item[&"text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 20, Color(1.0, 1.0, 1.0, fa))
+
+# ── Peg behavior helpers ──────────────────────────────────────────────────────
+
+const CHAIN_RADIUS  := 60.0
+const BOMB_RADIUS   := 80.0
+const FREEZE_RADIUS := 60.0
+const POISON_RADIUS := 60.0
+const MAGNET_RADIUS := 50.0
+
+func _score_peg(peg: Dictionary) -> void:
+	var pt: PegType = peg.get(&"type")
+	var multiplier := 3.0 if peg.get(&"frozen", false) else 1.0
+	var sign := -1.0 if peg.get(&"poisoned", false) else 1.0
+	var base: float = peg.get(&"base_score", 5.0) * multiplier * sign
+	_score_ctx.pegs_hit += 1
+	_score_ctx.add(ScoreContext.KIND_ADD_BASE, base, &"peg")
+	peg[&"frozen"] = false
+	peg[&"poisoned"] = false
+	var col: Color = pt.glow if pt != null else Color.WHITE
+	_flashes.append({&"pos": peg[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": col})
+
+func _trigger_chain(chain_peg: Dictionary) -> void:
+	for peg in _pegs:
+		if peg[&"id"] == chain_peg[&"id"] or peg.get(&"hit", false):
+			continue
+		if (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"]) <= CHAIN_RADIUS:
+			_score_peg(peg)
+
+func _trigger_bomb(bomb_peg: Dictionary) -> void:
+	var to_remove: Array = []
+	for peg in _pegs:
+		if (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"]) <= BOMB_RADIUS:
+			_score_peg(peg)
+			to_remove.append(peg)
+	for peg in to_remove:
+		_pegs.erase(peg)
+	_sim = _make_sim(_pegs)
+	_juice.on_peg_hit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), true)
+
+func _trigger_freeze(freeze_peg: Dictionary) -> void:
+	for peg in _pegs:
+		if peg[&"id"] == freeze_peg[&"id"]:
+			continue
+		if (peg[&"pos"] as Vector2).distance_to(freeze_peg[&"pos"]) <= FREEZE_RADIUS:
+			peg[&"frozen"] = true
+
+func _trigger_poison(poison_peg: Dictionary) -> void:
+	for peg in _pegs:
+		if peg[&"id"] == poison_peg[&"id"]:
+			continue
+		var pt: PegType = peg.get(&"type")
+		if pt != null and pt.behavior != PegType.Behavior.NORMAL:
+			continue
+		if (peg[&"pos"] as Vector2).distance_to(poison_peg[&"pos"]) <= POISON_RADIUS:
+			peg[&"poisoned"] = true
+
+func _trigger_magnet(magnet_peg: Dictionary) -> void:
+	for peg in _pegs:
+		if peg[&"id"] == magnet_peg[&"id"] or peg.get(&"hit", false):
+			continue
+		if (peg[&"pos"] as Vector2).distance_to(magnet_peg[&"pos"]) <= MAGNET_RADIUS:
+			_score_peg(peg)
+
+func _trigger_portal(portal_peg: Dictionary, hit_pos: Vector2) -> void:
+	var pair_idx: int = portal_peg.get(&"portal_pair", -1)
+	if pair_idx < 0 or pair_idx >= _pegs.size():
+		_score_peg(portal_peg)
+		return
+	var partner: Dictionary = _pegs[pair_idx]
+	# 找最近的活球传送
+	var closest_ball: BallState = null
+	var closest_dist := INF
+	for ball in _active_balls:
+		if ball.alive:
+			var d: float = ball.pos.distance_to(hit_pos)
+			if d < closest_dist:
+				closest_dist = d
+				closest_ball = ball
+	if closest_ball != null:
+		closest_ball.pos = partner[&"pos"] + Vector2(0.0, -24.0)
+		# 截断后续已基于旧位置计算的事件
+		_events.resize(_event_cursor + 1)
+	_flashes.append({&"pos": portal_peg[&"pos"], &"ttl": 0.3, &"max_ttl": 0.3, &"color": Color(0.7, 1.0, 1.0)})
+	_flashes.append({&"pos": partner[&"pos"],     &"ttl": 0.3, &"max_ttl": 0.3, &"color": Color(0.7, 1.0, 1.0)})
