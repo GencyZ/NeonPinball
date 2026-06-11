@@ -2,6 +2,20 @@ class_name EntryResolver
 
 enum BoardEdge { TOP, LEFT, RIGHT }
 
+# Fixed t values for each launcher gate center
+const LAUNCHER_T := {
+	BoardEdge.LEFT:  0.150,   # local y=135 / 900
+	BoardEdge.RIGHT: 0.150,
+	BoardEdge.TOP:   0.417,   # local x=225 / 540
+}
+
+# Launcher canvas positions (fixed; outside _rect)
+const LAUNCHER_POS := {
+	BoardEdge.LEFT:  Vector2(55.0, 255.0),
+	BoardEdge.TOP:   Vector2(405.0, 112.0),
+	BoardEdge.RIGHT: Vector2(755.0, 255.0),
+}
+
 # (edge, t∈[0,1]) → {pos, normal}，t 沿边归一化。
 static func resolve(edge: int, t: float, rect: Rect2) -> Dictionary:
 	t = clampf(t, 0.0, 1.0)
