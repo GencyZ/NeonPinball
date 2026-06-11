@@ -54,3 +54,45 @@ func test_reflect_with_restitution() -> void:
 	# restitution=0.8，法向分量乘以 0.8
 	var v := Collision.reflect(Vector2(0, 4), Vector2(0, -1), 0.8, 1.0)
 	assert_almost_eq(v.y, -3.2, 1e-4, "normal component scaled by restitution")
+
+func test_swept_segment_hits_left_face():
+	# Ball moving right, hits the left face of a vertical segment
+	var hit := Collision.swept_segment(
+		Vector2(10, 50), Vector2(200, 0), 5.0,
+		Vector2(100, 0), Vector2(100, 100))
+	assert_false(hit.is_empty(), "should hit")
+	# contact when ball right-edge reaches x=100: t = (100-10-5)/200 = 0.425
+	assert_almost_eq(hit[&"t"], 0.425, 0.001)
+	assert_eq(hit[&"normal"], Vector2(-1, 0))
+
+func test_swept_segment_hits_wall_from_inside():
+	# Ball inside rect moving left, hits left-wall segment at x=0
+	var hit := Collision.swept_segment(
+		Vector2(50, 100), Vector2(-200, 0), 8.0,
+		Vector2(0, 0), Vector2(0, 300))
+	assert_false(hit.is_empty(), "should hit left wall")
+	assert_almost_eq(hit[&"t"], (50.0 - 8.0) / 200.0, 0.001)
+	assert_eq(hit[&"normal"], Vector2(1, 0))
+
+func test_swept_segment_parallel_miss():
+	# Ball path never intersects segment
+	var hit := Collision.swept_segment(
+		Vector2(0, 50), Vector2(200, 0), 5.0,
+		Vector2(50, 100), Vector2(50, 200))
+	assert_true(hit.is_empty())
+
+func test_swept_segment_endpoint_cap():
+	# Ball path misses the flat face but catches the segment endpoint
+	# seg_a=(50,15) is just above the ball's y=10 path
+	var hit := Collision.swept_segment(
+		Vector2(0, 10), Vector2(200, 0), 8.0,
+		Vector2(50, 15), Vector2(50, 100))
+	assert_false(hit.is_empty(), "endpoint cap should catch")
+	assert_true(hit[&"t"] > 0.0 and hit[&"t"] <= 1.0)
+
+func test_swept_segment_moving_away_miss():
+	# Ball moving away from segment — should miss
+	var hit := Collision.swept_segment(
+		Vector2(50, 50), Vector2(-200, 0), 5.0,
+		Vector2(100, 0), Vector2(100, 100))
+	assert_true(hit.is_empty())
