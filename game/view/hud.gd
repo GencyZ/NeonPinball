@@ -32,10 +32,10 @@ func _ready() -> void:
 	_label_gate  = _make_label(Vector2(20, 82), 18, Color(0.6, 1.0, 0.8))
 
 	# Top-right: run state
-	_label_ante    = _make_label(Vector2(300, 20), 18, Color(1.0, 0.8, 0.4))
-	_label_quota   = _make_label(Vector2(300, 44), 18, Color(1.0, 0.5, 0.5))
-	_label_money   = _make_label(Vector2(300, 68), 18, Color(0.4, 1.0, 0.6))
-	_label_launches = _make_label(Vector2(300, 92), 18, Color(0.8, 0.8, 1.0))
+	_label_ante    = _make_label(Vector2(490, 20), 18, Color(1.0, 0.8, 0.4))
+	_label_quota   = _make_label(Vector2(490, 44), 18, Color(1.0, 0.5, 0.5))
+	_label_money   = _make_label(Vector2(490, 68), 18, Color(0.4, 1.0, 0.6))
+	_label_launches = _make_label(Vector2(490, 92), 18, Color(0.8, 0.8, 1.0))
 
 	# Initialize text
 	_label_total.text    = "Score: 0"
@@ -59,7 +59,7 @@ func _make_label(pos: Vector2, size: int, color: Color = Color.WHITE) -> Label:
 
 func _build_shop_panel() -> void:
 	_shop_panel = PanelContainer.new()
-	_shop_panel.position = Vector2(60, 160)
+	_shop_panel.position = Vector2(60, 210)
 	_shop_panel.custom_minimum_size = Vector2(420, 300)
 	_shop_panel.visible = false
 	add_child(_shop_panel)
@@ -146,14 +146,14 @@ func _build_end_panel() -> void:
 
 	var btn_restart := Button.new()
 	btn_restart.text = "Restart  (R)"
-	btn_restart.position = Vector2(145, 520)
+	btn_restart.position = Vector2(280, 780)
 	btn_restart.custom_minimum_size = Vector2(250, 56)
 	btn_restart.pressed.connect(SceneMan.start_run)
 	_end_panel.add_child(btn_restart)
 
 	var btn_menu := Button.new()
 	btn_menu.text = "Main Menu  (Esc)"
-	btn_menu.position = Vector2(145, 588)
+	btn_menu.position = Vector2(280, 848)
 	btn_menu.custom_minimum_size = Vector2(250, 56)
 	btn_menu.pressed.connect(SceneMan.goto_menu)
 	_end_panel.add_child(btn_menu)

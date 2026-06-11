@@ -19,26 +19,26 @@ func _build_ui(saved: Dictionary) -> void:
 	var title := Label.new()
 	title.text = "NEON PINBALL"
 	title.add_theme_font_size_override(&"font_size", 48)
-	title.position = Vector2(120, 120)
+	title.position = Vector2(180, 180)
 	add_child(title)
 
 	var best := Label.new()
 	best.text = best_text(saved)
 	best.add_theme_font_size_override(&"font_size", 22)
-	best.position = Vector2(120, 200)
+	best.position = Vector2(180, 300)
 	add_child(best)
 
 	var start_btn := Button.new()
 	start_btn.text = "Start Run"
-	start_btn.position = Vector2(120, 280)
-	start_btn.custom_minimum_size = Vector2(200, 48)
+	start_btn.position = Vector2(180, 420)
+	start_btn.custom_minimum_size = Vector2(300, 64)
 	start_btn.pressed.connect(_on_start_pressed)
 	add_child(start_btn)
 
 	var quit_btn := Button.new()
 	quit_btn.text = "Quit"
-	quit_btn.position = Vector2(120, 344)
-	quit_btn.custom_minimum_size = Vector2(200, 48)
+	quit_btn.position = Vector2(180, 500)
+	quit_btn.custom_minimum_size = Vector2(300, 64)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	add_child(quit_btn)
 
@@ -46,21 +46,21 @@ func _build_ui(saved: Dictionary) -> void:
 	var res_label := Label.new()
 	res_label.text = "Window Size"
 	res_label.add_theme_font_size_override(&"font_size", 18)
-	res_label.position = Vector2(120, 430)
+	res_label.position = Vector2(180, 640)
 	add_child(res_label)
 
 	var current_sz := SettingsSystemScript.load_window_size()
-	var btn_y := 460
+	var btn_y := 678
 	for preset in SettingsSystemScript.PRESETS:
 		var btn := Button.new()
 		btn.text = SettingsSystemScript.preset_label(preset)
-		btn.position = Vector2(120, btn_y)
-		btn.custom_minimum_size = Vector2(280, 44)
+		btn.position = Vector2(180, btn_y)
+		btn.custom_minimum_size = Vector2(420, 64)
 		if preset == current_sz:
 			btn.disabled = true
 		btn.pressed.connect(_on_resolution_pressed.bind(preset))
 		add_child(btn)
-		btn_y += 52
+		btn_y += 78
 
 func best_text(saved: Dictionary) -> String:
 	return "Best: %d" % int(saved.get(&"best_score", 0))

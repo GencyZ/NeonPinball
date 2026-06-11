@@ -15,4 +15,4 @@ script = ExtResource("3_nglv8")
 board_path = NodePath("..")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1767086248]
-position = Vector2(270, 450)
+position = Vector2(405, 675)
