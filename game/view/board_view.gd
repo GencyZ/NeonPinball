@@ -49,7 +49,7 @@ var active_gate_def: GateDef:
 	get: return _active_gate_def
 
 func _ready() -> void:
-	_rect = Rect2(0, 0, 540, 900)
+	_rect = Rect2(135, 225, 540, 900)
 	_pegs = _build_honeycomb()
 	_sim = _make_sim(_pegs)
 	_engine = ScoringEngine.new()
@@ -90,10 +90,10 @@ func _build_honeycomb() -> Array:
 	var sizes := [7.0, 10.0, 13.0]
 	var scores := [3.0, 5.0, 8.0]
 	for r in rows:
-		var y := margin + 140.0 + r * spacing
+		var y := _rect.position.y + margin + 140.0 + r * spacing
 		var x_off := (r % 2) * spacing * 0.5
 		for c in cols:
-			var x := margin + x_off + c * spacing
+			var x := _rect.position.x + margin + x_off + c * spacing
 			if x < _rect.end.x - margin:
 				var tier := (r + c * 2) % 3
 				var peg_type: PegType
