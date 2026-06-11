@@ -4,7 +4,7 @@ const SaveSystemScript := preload("res://run/save_system.gd")
 const SettingsSystemScript := preload("res://run/settings_system.gd")
 
 func _ready() -> void:
-	_apply_saved_window_size()
+	call_deferred(&"_apply_saved_window_size")
 	var saved := SaveSystemScript.load_data()
 	_build_ui(saved)
 
