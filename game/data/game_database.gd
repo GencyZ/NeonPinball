@@ -19,6 +19,46 @@ func _register_defaults() -> void:
     pm.base_score = 8.0; pm.mult_add = 0.5; pm.glow = Color(1.0, 0.5, 0.1, 1.0)
     peg_types[pm.id] = pm
 
+    var pc := PegType.new()
+    pc.id = &"chain"; pc.behavior = PegType.Behavior.CHAIN
+    pc.base_score = 6.0; pc.glow = Color(0.5, 0.3, 1.0, 1.0)
+    peg_types[pc.id] = pc
+
+    var pb := PegType.new()
+    pb.id = &"bomb"; pb.behavior = PegType.Behavior.BOMB
+    pb.base_score = 20.0; pb.one_shot = true; pb.glow = Color(1.0, 0.2, 0.1, 1.0)
+    peg_types[pb.id] = pb
+
+    var pf := PegType.new()
+    pf.id = &"freeze"; pf.behavior = PegType.Behavior.FREEZE
+    pf.base_score = 5.0; pf.glow = Color(0.5, 0.85, 1.0, 1.0)
+    peg_types[pf.id] = pf
+
+    var pj := PegType.new()
+    pj.id = &"jackpot"; pj.behavior = PegType.Behavior.JACKPOT
+    pj.base_score = 10.0; pj.one_shot = true; pj.glow = Color(1.0, 0.85, 0.0, 1.0)
+    peg_types[pj.id] = pj
+
+    var pl := PegType.new()
+    pl.id = &"life"; pl.behavior = PegType.Behavior.LIFE
+    pl.base_score = 0.0; pl.one_shot = true; pl.glow = Color(0.2, 1.0, 0.3, 1.0)
+    peg_types[pl.id] = pl
+
+    var pp := PegType.new()
+    pp.id = &"poison"; pp.behavior = PegType.Behavior.POISON
+    pp.base_score = 5.0; pp.one_shot = true; pp.glow = Color(0.4, 0.9, 0.3, 1.0)
+    peg_types[pp.id] = pp
+
+    var po := PegType.new()
+    po.id = &"portal"; po.behavior = PegType.Behavior.PORTAL
+    po.base_score = 0.0; po.glow = Color(0.7, 1.0, 1.0, 1.0)
+    peg_types[po.id] = po
+
+    var pmg := PegType.new()
+    pmg.id = &"magnet"; pmg.behavior = PegType.Behavior.MAGNET
+    pmg.base_score = 5.0; pmg.glow = Color(0.5, 0.7, 1.0, 1.0)
+    peg_types[pmg.id] = pmg
+
     # --- Triggers ---
     var peg_bonus := TriggerDef.new()
     peg_bonus.id = &"peg_bonus"

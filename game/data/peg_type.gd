@@ -1,6 +1,6 @@
 class_name PegType extends Resource
 
-enum Behavior { NORMAL, MULT, CHAIN, SPAWN, BOMB }
+enum Behavior { NORMAL, MULT, CHAIN, SPAWN, BOMB, FREEZE, JACKPOT, LIFE, POISON, PORTAL, MAGNET }
 
 @export var id: StringName
 @export var behavior: Behavior = Behavior.NORMAL
