@@ -85,7 +85,7 @@ func _build_shop_panel() -> void:
 	_shop_continue_btn = Button.new()
 	_shop_continue_btn.text = "Continue →  (Space)"
 	_shop_continue_btn.add_theme_font_size_override(&"font_size", 16)
-	_shop_continue_btn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_continue_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shop_continue_btn.pressed.connect(func(): shop_continue_pressed.emit())
 	vbox.add_child(_shop_continue_btn)
 
