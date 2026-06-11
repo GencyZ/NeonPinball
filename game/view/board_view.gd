@@ -6,6 +6,7 @@ const PEG_ANIM_DUR := 0.18      # peg hit pop duration (s)
 const PEG_ANIM_SCALE := 0.5     # extra radius at pop peak (1.0 -> 1.5x)
 const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
+const JuiceControllerScript := preload("res://juice/juice_controller.gd")
 
 var _rect: Rect2
 var _pegs: Array = []
@@ -30,6 +31,9 @@ var _peg_anims: Dictionary = {}   # peg_id -> remaining pop-anim ttl
 
 var _launch_count := 0
 
+var _juice
+var _last_settle_pos := Vector2.ZERO
+
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
 var _gate_applied := false
@@ -50,6 +54,7 @@ func _ready() -> void:
 	_sim = _make_sim(_pegs)
 	_engine = ScoringEngine.new()
 	_score_ctx = ScoreContext.new()
+	_juice = JuiceControllerScript.new()
 
 	for tid in [&"peg_bonus", &"bounce_mult", &"big_hit"]:
 		_trigger_runtimes.append(TriggerRuntime.new(GameDB.triggers[tid]))
@@ -225,14 +230,17 @@ func _process(delta: float) -> void:
 				var e: Dictionary = _events[_event_cursor]
 				if e[&"type"] == SimEvent.PEG_HIT:
 					_score_ctx.pegs_hit += 1
+					var flash_color := Color.from_hsv(randf(), 0.85, 1.0)
 					var hit_peg_id: int = e[&"peg_id"]
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
 						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
 						var hit_type: PegType = _pegs[hit_peg_id].get(&"type")
 						if hit_type != null and hit_type.behavior == PegType.Behavior.MULT:
 							_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
-					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15,
-						&"color": Color.from_hsv(randf(), 0.85, 1.0)})
+					_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
+					_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": flash_color})
+				elif e[&"type"] == SimEvent.SETTLED:
+					_last_settle_pos = e[&"pos"]
 				elif e[&"type"] == SimEvent.BOUNCE:
 					_score_ctx.bounce_count += 1
 				for rt in _trigger_runtimes:
@@ -257,11 +265,15 @@ func _process(delta: float) -> void:
 			_peg_anims[pid] -= delta
 			if _peg_anims[pid] <= 0.0:
 				_peg_anims.erase(pid)
+	_juice.update(delta)
+	$Camera2D.offset = _juice.camera_offset()
+	Engine.time_scale = _juice.time_scale()
 	queue_redraw()
 
 func _on_all_settled() -> void:
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
+	_juice.on_settle(_last_settle_pos, score, RunMan.launches_exhausted())
 	$Hud.add_score(score)
 	RunMan.add_launch_score(score)
 	# Clean up ball state first, before any phase transition
@@ -402,3 +414,11 @@ func _draw() -> void:
 		var a: float = f[&"ttl"] / f[&"max_ttl"]
 		var base_col: Color = f.get(&"color", Color(1.0, 1.0, 0.6))
 		draw_circle(f[&"pos"], 16.0, Color(base_col.r, base_col.g, base_col.b, a * 0.8))
+	for p in _juice.particles.particles:
+		var pa: float = p[&"ttl"] / p[&"max_ttl"]
+		var pc: Color = p[&"color"]
+		draw_circle(p[&"pos"], 3.0 * pa + 1.0, Color(pc.r, pc.g, pc.b, pa))
+	var font := ThemeDB.fallback_font
+	for item in _juice.floaters.items:
+		var fa: float = _juice.floaters.alpha_of(item)
+		draw_string(font, item[&"pos"], item[&"text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 20, Color(1.0, 1.0, 1.0, fa))
