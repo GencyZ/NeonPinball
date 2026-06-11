@@ -60,7 +60,7 @@ SceneMan="*res://run/scene_manager.gd"
 
 ## Task 1：FadeManager Autoload
 
-- [ ] **新建** `run/fade_manager.gd`（TAB 缩进）：
+- [x] **新建** `run/fade_manager.gd`（TAB 缩进）：
 
   ```gdscript
   extends CanvasLayer
@@ -102,7 +102,7 @@ SceneMan="*res://run/scene_manager.gd"
   > `mouse_filter = STOP` 在淡出阶段屏蔽输入，防止重复点击。
   > `_on_node_added` 监听根节点子节点变化，新场景根加入时自动淡入，无需各场景自行调用。
 
-- [ ] **注册 Autoload**：在 `project.godot` `[autoload]` 块末尾追加：
+- [x] **注册 Autoload**：在 `project.godot` `[autoload]` 块末尾追加：
 
   ```ini
   FadeMan="*res://run/fade_manager.gd"
@@ -110,13 +110,13 @@ SceneMan="*res://run/scene_manager.gd"
 
   > 排在 SceneMan 之后。
 
-- [ ] **运行测试**，确认新 Autoload 不破坏既有测试：
+- [x] **运行测试**，确认新 Autoload 不破坏既有测试：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
   **预期：** 150 个测试全部通过，退出码 0。
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add run/fade_manager.gd project.godot
   git -C D:/NeonPinball/game commit -m "feat: FadeManager autoload — full-screen black fade primitive"
@@ -126,7 +126,7 @@ SceneMan="*res://run/scene_manager.gd"
 
 ## Task 2：SceneMan 经由 FadeMan 切换场景
 
-- [ ] **修改** `run/scene_manager.gd`：
+- [x] **修改** `run/scene_manager.gd`：
 
   **改前：**
   ```gdscript
@@ -150,7 +150,7 @@ SceneMan="*res://run/scene_manager.gd"
 
   > `FadeMan` 是 Autoload，可直接引用。`fade_to` 接受 Callable，Lambda 捕获 `get_tree()` / 路径常量（均在 SceneMan 作用域内可访问）。
 
-- [ ] **追加冒烟测试**到已有 `tests/test_scene_flow.gd`：
+- [x] **追加冒烟测试**到已有 `tests/test_scene_flow.gd`：
 
   ```gdscript
   func test_fade_manager_script_loads() -> void:
@@ -159,12 +159,12 @@ SceneMan="*res://run/scene_manager.gd"
 
   > 不测实际淡出动画（Tween 在 headless 模式无可视效果），只验证脚本无语法错误。
 
-- [ ] **运行测试**，预期 150 → 151：
+- [x] **运行测试**，预期 150 → 151：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add run/scene_manager.gd tests/test_scene_flow.gd
   git -C D:/NeonPinball/game commit -m "feat: SceneMan transitions via FadeMan (fade-out → switch → fade-in)"
@@ -186,12 +186,12 @@ SceneMan="*res://run/scene_manager.gd"
 
 ## 自检清单
 
-- [ ] 150 个基线测试仍全部通过（+1 冒烟测试 = 151）
-- [ ] 主菜单点 "Start Run" → 黑色淡出（0.3s）→ 局内场景加载 → 淡入（0.3s）
-- [ ] 局内 WIN/LOSE 点 "Main Menu" / Esc → 同样淡出淡入
-- [ ] 局内 WIN/LOSE 点 "Restart" / R → 淡出淡入重开
-- [ ] 淡出期间点击无效（mouse_filter=STOP 屏蔽）
-- [ ] 无回归：商店、HUD、弹球逻辑正常
+- [x] 150 个基线测试仍全部通过（+1 冒烟测试 = 151）
+- [x] 主菜单点 "Start Run" → 黑色淡出（0.3s）→ 局内场景加载 → 淡入（0.3s）
+- [x] 局内 WIN/LOSE 点 "Main Menu" / Esc → 同样淡出淡入
+- [x] 局内 WIN/LOSE 点 "Restart" / R → 淡出淡入重开
+- [x] 淡出期间点击无效（mouse_filter=STOP 屏蔽）
+- [x] 无回归：商店、HUD、弹球逻辑正常
 
 ---
 
