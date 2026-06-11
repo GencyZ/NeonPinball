@@ -15,6 +15,10 @@ func _ready() -> void:
 	_board = get_node(board_path)
 
 func _process(_delta: float) -> void:
+	if _board._has_ball:
+		_board.prediction_pts.clear()
+		_board.prediction_fans.clear()
+		return
 	var m := _board.get_local_mouse_position()
 	var r: Rect2 = _board.rect
 	match _edge:
