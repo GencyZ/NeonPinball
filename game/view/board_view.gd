@@ -96,7 +96,7 @@ func _generate_pegs() -> Array:
 	var ante: int = RunMan.state[&"ante"]
 	var ria: int  = RunMan.state[&"round_in_ante"]
 	var depth := (ante - 1) * 3 + ria   # 0 (ante1 r1) … 23 (ante8 boss)
-	var rng := DeterministicRng.new(int(RunMan.state[&"master_seed"]) ^ (_launch_count * 2654435761))
+	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]) + _launch_count, 0x9E3779B9)
 
 	var count := rng.range_int(12 + ante * 2, 16 + ante * 3)
 
