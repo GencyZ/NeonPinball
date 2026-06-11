@@ -5,8 +5,8 @@ const MENU_SCENE := "res://scenes/main_menu.tscn"
 const GAME_SCENE := "res://scenes/board.tscn"
 
 func goto_menu() -> void:
-	get_tree().change_scene_to_file(MENU_SCENE)
+	FadeMan.fade_to(func(): get_tree().change_scene_to_file(MENU_SCENE))
 
 func start_run() -> void:
 	RunMan.reset_run()
-	get_tree().change_scene_to_file(GAME_SCENE)
+	FadeMan.fade_to(func(): get_tree().change_scene_to_file(GAME_SCENE))

@@ -47,3 +47,6 @@ func test_menu_scene_path_exists() -> void:
 func test_board_scene_still_loads() -> void:
 	assert_true(ResourceLoader.exists("res://scenes/board.tscn"), "board.tscn 仍存在")
 	assert_not_null(load("res://view/input_controller.gd"), "input_controller.gd 编辑后仍能解析")
+
+func test_fade_manager_script_loads() -> void:
+	assert_not_null(load("res://run/fade_manager.gd"), "FadeManager 脚本可加载/解析")
