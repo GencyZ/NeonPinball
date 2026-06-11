@@ -16,6 +16,9 @@ var _shop_slots: Array[Label] = []
 var _shop_hint: Label
 var _shop_visible := false
 
+# ---- End-of-run buttons ----
+var _end_panel: Control
+
 # ---- Internal ----
 var _total := 0.0
 
@@ -41,6 +44,7 @@ func _ready() -> void:
 	_label_launches.text = "Launches: 5"
 
 	_build_shop_panel()
+	_build_end_panel()
 
 func _make_label(pos: Vector2, size: int, color: Color = Color.WHITE) -> Label:
 	var lbl := Label.new()
@@ -126,3 +130,28 @@ func hide_shop() -> void:
 
 func is_shop_visible() -> bool:
 	return _shop_visible
+
+func _build_end_panel() -> void:
+	_end_panel = Control.new()
+	_end_panel.visible = false
+	add_child(_end_panel)
+
+	var btn_restart := Button.new()
+	btn_restart.text = "Restart  (R)"
+	btn_restart.position = Vector2(145, 520)
+	btn_restart.custom_minimum_size = Vector2(250, 56)
+	btn_restart.pressed.connect(SceneMan.start_run)
+	_end_panel.add_child(btn_restart)
+
+	var btn_menu := Button.new()
+	btn_menu.text = "Main Menu  (Esc)"
+	btn_menu.position = Vector2(145, 588)
+	btn_menu.custom_minimum_size = Vector2(250, 56)
+	btn_menu.pressed.connect(SceneMan.goto_menu)
+	_end_panel.add_child(btn_menu)
+
+func show_end_buttons() -> void:
+	_end_panel.visible = true
+
+func hide_end_buttons() -> void:
+	_end_panel.visible = false

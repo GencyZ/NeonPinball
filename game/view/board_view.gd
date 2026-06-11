@@ -304,12 +304,14 @@ func _handle_phase_transition() -> void:
 			saved[&"last_date"] = SaveSystemScript.today_string()
 			saved[&"daily_completed"] = true
 			SaveSystemScript.save(saved)
-			$Hud.set_gate_label("YOU WIN!  Best: %d  (R to restart)" % int(saved[&"best_score"]))
+			$Hud.set_gate_label("YOU WIN!  Best: %d" % int(saved[&"best_score"]))
+			$Hud.show_end_buttons()
 		RunManager.Phase.RUN_LOSE:
 			var saved := SaveSystemScript.load_data()
 			saved[&"runs_completed"] = int(saved[&"runs_completed"]) + 1
 			SaveSystemScript.save(saved)
-			$Hud.set_gate_label("GAME OVER  (R to restart)")
+			$Hud.set_gate_label("GAME OVER")
+			$Hud.show_end_buttons()
 
 func _show_shop_ui() -> void:
 	_active_shop = Shop.new()
