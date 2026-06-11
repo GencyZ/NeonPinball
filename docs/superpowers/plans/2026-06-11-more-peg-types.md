@@ -1,267 +1,381 @@
 # 更多钉子类型 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+**Goal:** 实现 8 种钉子类型：CHAIN、BOMB（原计划）+ FREEZE、JACKPOT、LIFE、POISON、PORTAL、MAGNET（新增）。
 
-**Goal:** 新增两种钉子类型：**CHAIN**（链式触发周围钉）和 **BOMB**（范围爆炸得分），让棋盘产生更多变化和策略性。
+**架构总览：**
+- `peg_type.gd` 扩展枚举
+- `game_database.gd` 注册全部 8 种类型
+- `board_view.gd` 三处修改：`_build_honeycomb()` 布局分配、`_draw()` 颜色、命中处理管线
+- 部分类型需要 peg dict 里的可变状态字段（`frozen`、`poisoned`）
+- PORTAL 通过命中时修改 `_active_balls[i].pos/vel` + 截断 `_events` 实现球传送
 
-**Architecture:**
-- `PegType.Behavior` 已有 CHAIN、BOMB 枚举值，只需实现行为逻辑
-- **CHAIN**：球命中 CHAIN 钉后，自动触发其 R 范围内所有未命中普通钉的计分（视觉上这些钉也闪光），递归深度限 1
-- **BOMB**：球命中 BOMB 钉后，R 范围内所有钉都计分并清除出棋盘（one_shot），伴随大爆炸粒子特效
-- 行为逻辑写在 `view/board_view.gd` 的命中处理管线里，`GameDB` 注册两种新 PegType
-- 棋盘布局：蜂巢网格中按固定规律插入 CHAIN（蓝紫色）和 BOMB（红色）钉，比例约 5% / 3%
-
-**Tech Stack:** Godot 4.6.3 GDScript, GUT。
+**测试命令：**
+```
+D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
+```
+**当前基线：156 个测试全部通过。不要 push。**
 
 ---
 
-## Background（代码库上下文）
+## 类型一览
 
-- 项目根目录：`D:/NeonPinball/game/`，Godot 4.6.3 纯 GDScript。
-- 测试命令：
-  ```
-  D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
-  ```
-- 当前基线：**150 个测试**全部通过。
-- 每个任务只提交它自己改动的文件。**不要 push。**
-
-### PegType 已定义枚举
-
-```gdscript
-# data/peg_type.gd
-enum Behavior { NORMAL, MULT, CHAIN, SPAWN, BOMB }
-@export var one_shot: bool = false   # ← BOMB 钉用到
-```
-
-### 棋盘生成（board_view.gd）
-
-```gdscript
-# _build_honeycomb() 生成钉子列表，每个钉为 Dictionary：
-# { id, pos, radius, type: PegType }
-# MULT 钉判断：(r*7+c) % 7 == 3  → ~14% 为 mult
-
-# _on_peg_hit(peg_id) 命中处理：
-# - 更新 ScoringEngine（计分）
-# - 记录 _flashes（闪光特效）
-# - 触发 JuiceController
-```
-
-### 命中处理关键路径
-
-```gdscript
-func _on_peg_hit(peg_id: StringName) -> void:
-    var peg := _peg_by_id(peg_id)
-    # ... ScoringEngine 计分、flash 特效 ...
-    if peg[&"type"] != null and peg[&"type"].one_shot:
-        _pegs.erase(...)   # 移除 one_shot 钉
-```
-
-（以上为伪代码，实际实现时需读当前代码确认字段名和逻辑。）
+| 类型 | 颜色 | one_shot | 效果 | 占比 |
+|------|------|----------|------|------|
+| CHAIN | 蓝紫 | ✗ | 命中→周围 60px 内普通钉同时计分 | ~5% |
+| BOMB | 红色 | ✓ | 命中→周围 80px 内所有钉计分并消失 | ~3% |
+| FREEZE | 浅蓝 | ✗ | 命中→周围 60px 钉冻结；冻结钉被打到得分×3 | ~4% |
+| JACKPOT | 金色 | ✓ | 命中→随机加 1~10 倍数到本轮得分 | ~2% |
+| LIFE | 绿色 | ✓ | 命中→发球次数+1 | ~2% |
+| POISON | 紫绿 | ✓ | 命中→周围 60px 普通钉变毒（被打到扣分） | ~3% |
+| PORTAL | 青白 | ✗ | 两个一对，球打到其中一个→瞬移到另一个 | ~2% |
+| MAGNET | 蓝白 | ✗ | 命中→周围 50px 所有未打到的钉直接计分（不消失） | ~4% |
 
 ---
 
-## Task 1：注册 CHAIN 和 BOMB PegType 到 GameDB
+## Task 1：扩展枚举 + 注册 GameDB
+
+- [ ] **修改** `data/peg_type.gd`，扩展枚举：
+
+  ```gdscript
+  enum Behavior { NORMAL, MULT, CHAIN, SPAWN, BOMB, FREEZE, JACKPOT, LIFE, POISON, PORTAL, MAGNET }
+  ```
 
 - [ ] **修改** `data/game_database.gd` 的 `_register_defaults()`，在 mult peg 之后追加：
 
   ```gdscript
   var pc := PegType.new()
   pc.id = &"chain"; pc.behavior = PegType.Behavior.CHAIN
-  pc.base_score = 6.0; pc.glow = Color(0.5, 0.3, 1.0, 1.0)   # 蓝紫色
+  pc.base_score = 6.0; pc.glow = Color(0.5, 0.3, 1.0, 1.0)
   peg_types[pc.id] = pc
 
   var pb := PegType.new()
   pb.id = &"bomb"; pb.behavior = PegType.Behavior.BOMB
-  pb.base_score = 20.0; pb.one_shot = true; pb.glow = Color(1.0, 0.2, 0.1, 1.0)  # 红色
+  pb.base_score = 20.0; pb.one_shot = true; pb.glow = Color(1.0, 0.2, 0.1, 1.0)
   peg_types[pb.id] = pb
+
+  var pf := PegType.new()
+  pf.id = &"freeze"; pf.behavior = PegType.Behavior.FREEZE
+  pf.base_score = 5.0; pf.glow = Color(0.5, 0.85, 1.0, 1.0)
+  peg_types[pf.id] = pf
+
+  var pj := PegType.new()
+  pj.id = &"jackpot"; pj.behavior = PegType.Behavior.JACKPOT
+  pj.base_score = 10.0; pj.one_shot = true; pj.glow = Color(1.0, 0.85, 0.0, 1.0)
+  peg_types[pj.id] = pj
+
+  var pl := PegType.new()
+  pl.id = &"life"; pl.behavior = PegType.Behavior.LIFE
+  pl.base_score = 0.0; pl.one_shot = true; pl.glow = Color(0.2, 1.0, 0.3, 1.0)
+  peg_types[pl.id] = pl
+
+  var pp := PegType.new()
+  pp.id = &"poison"; pp.behavior = PegType.Behavior.POISON
+  pp.base_score = 5.0; pp.one_shot = true; pp.glow = Color(0.4, 0.9, 0.3, 1.0)
+  peg_types[pp.id] = pp
+
+  var po := PegType.new()
+  po.id = &"portal"; po.behavior = PegType.Behavior.PORTAL
+  po.base_score = 0.0; po.glow = Color(0.7, 1.0, 1.0, 1.0)
+  peg_types[po.id] = po
+
+  var pmg := PegType.new()
+  pmg.id = &"magnet"; pmg.behavior = PegType.Behavior.MAGNET
+  pmg.base_score = 5.0; pmg.glow = Color(0.5, 0.7, 1.0, 1.0)
+  peg_types[pmg.id] = pmg
   ```
 
-- [ ] **新建测试** `tests/test_peg_types.gd`（TAB 缩进）：
+- [ ] **新建** `tests/test_peg_types.gd`：
 
   ```gdscript
   extends GutTest
 
-  func test_chain_peg_registered() -> void:
-      assert_true(GameDB.peg_types.has(&"chain"), "chain 钉已注册")
-      var pt: PegType = GameDB.peg_types[&"chain"]
-      assert_eq(pt.behavior, PegType.Behavior.CHAIN)
-      assert_false(pt.one_shot, "chain 钉不是 one_shot")
+  func test_all_new_types_registered() -> void:
+      for id in [&"chain", &"bomb", &"freeze", &"jackpot", &"life", &"poison", &"portal", &"magnet"]:
+          assert_true(GameDB.peg_types.has(id), "%s 已注册" % id)
 
-  func test_bomb_peg_registered() -> void:
-      assert_true(GameDB.peg_types.has(&"bomb"), "bomb 钉已注册")
-      var pt: PegType = GameDB.peg_types[&"bomb"]
-      assert_eq(pt.behavior, PegType.Behavior.BOMB)
-      assert_true(pt.one_shot, "bomb 钉是 one_shot")
+  func test_bomb_is_one_shot() -> void:
+      assert_true((GameDB.peg_types[&"bomb"] as PegType).one_shot)
 
-  func test_bomb_base_score_higher_than_normal() -> void:
-      var bomb_score: float = (GameDB.peg_types[&"bomb"] as PegType).base_score
-      var normal_score: float = (GameDB.peg_types[&"normal"] as PegType).base_score
-      assert_gt(bomb_score, normal_score, "bomb 基础分高于 normal")
+  func test_jackpot_is_one_shot() -> void:
+      assert_true((GameDB.peg_types[&"jackpot"] as PegType).one_shot)
+
+  func test_life_is_one_shot() -> void:
+      assert_true((GameDB.peg_types[&"life"] as PegType).one_shot)
+
+  func test_chain_not_one_shot() -> void:
+      assert_false((GameDB.peg_types[&"chain"] as PegType).one_shot)
+
+  func test_portal_not_one_shot() -> void:
+      assert_false((GameDB.peg_types[&"portal"] as PegType).one_shot)
   ```
 
-- [ ] **运行测试**，预期 150 → 153（+3 个）：
+- [x] **运行测试**，预期 156 → 162（+6）
+- [x] **提交：**
   ```
-  D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
-  ```
-
-- [ ] **提交：**
-  ```
-  git -C D:/NeonPinball/game add data/game_database.gd tests/test_peg_types.gd
-  git -C D:/NeonPinball/game commit -m "feat: register CHAIN and BOMB peg types in GameDB"
+  git -C D:/NeonPinball/game add data/peg_type.gd data/game_database.gd tests/test_peg_types.gd
+  git -C D:/NeonPinball/game commit -m "feat: register 8 new peg types in GameDB"
   ```
 
 ---
 
-## Task 2：棋盘布局插入新钉子
+## Task 2：棋盘布局 + 颜色统一
 
-- [ ] **修改** `view/board_view.gd` 的 `_build_honeycomb()`：在 MULT 判断之后追加 CHAIN 和 BOMB 的分配规则。
+- [ ] **修改** `view/board_view.gd` 的 `_build_honeycomb()`：
 
-  **现有 MULT 分配（约 14%）：**
+  将现有：
   ```gdscript
-  if (r * 7 + c) % 7 == 3:
-      peg_type = GameDB.peg_types.get(&"mult")
+  var peg_type: PegType = GameDB.peg_types[&"mult"] if (r * 7 + c) % 7 == 3 else GameDB.peg_types[&"normal"]
+  list.append({&"id": id, &"pos": Vector2(x, y),
+              &"radius": sizes[tier], &"base_score": scores[tier],
+              &"type": peg_type})
   ```
 
-  **追加（在 MULT 判断之后）：**
+  替换为：
   ```gdscript
-  elif (r * 11 + c) % 19 == 7:
-      peg_type = GameDB.peg_types.get(&"chain")   # ~5%
-  elif (r * 13 + c) % 31 == 5:
-      peg_type = GameDB.peg_types.get(&"bomb")    # ~3%
+  var peg_type: PegType
+  if   (r * 7  + c) % 7  == 3: peg_type = GameDB.peg_types[&"mult"]
+  elif (r * 11 + c) % 19 == 7: peg_type = GameDB.peg_types[&"chain"]
+  elif (r * 13 + c) % 31 == 5: peg_type = GameDB.peg_types[&"bomb"]
+  elif (r * 9  + c) % 23 == 4: peg_type = GameDB.peg_types[&"freeze"]
+  elif (r * 17 + c) % 47 == 9: peg_type = GameDB.peg_types[&"jackpot"]
+  elif (r * 19 + c) % 53 == 11: peg_type = GameDB.peg_types[&"life"]
+  elif (r * 23 + c) % 37 == 6: peg_type = GameDB.peg_types[&"poison"]
+  elif (r * 29 + c) % 41 == 3: peg_type = GameDB.peg_types[&"magnet"]
+  else: peg_type = GameDB.peg_types[&"normal"]
+  list.append({&"id": id, &"pos": Vector2(x, y),
+              &"radius": sizes[tier], &"base_score": scores[tier],
+              &"type": peg_type, &"frozen": false, &"poisoned": false})
   ```
 
-  > `elif` 确保一个钉只属于一种类型，优先级 MULT > CHAIN > BOMB。
-  > 若 GameDB 中该类型未注册（被 UnlockManager 过滤），`get()` 返回 null，钉子退化为普通 NORMAL 钉（board_view 的 null 判断已有处理）。
-
-- [ ] **修改 `_draw()` 的颜色逻辑**，按 behavior 选色：
-
-  **改前：**
+  > PORTAL 单独处理：生成完列表后，遍历找出所有 portal peg，两两配对记录 `portal_pair_id`（见下）：
   ```gdscript
-  var col := Color(0.2, 0.9, 1.0)   # 默认青色
+  # 在 return list 之前追加 portal 分配逻辑
+  var portal_indices: Array = []
+  for i in list.size():
+      if list[i][&"type"] != null and list[i][&"type"].behavior == PegType.Behavior.PORTAL:
+          portal_indices.append(i)
+  # 两两配对（奇数个时最后一个退化为 normal）
+  var pi := 0
+  while pi + 1 < portal_indices.size():
+      list[portal_indices[pi]][&"portal_pair"] = portal_indices[pi + 1]
+      list[portal_indices[pi + 1]][&"portal_pair"] = portal_indices[pi]
+      pi += 2
+  if pi < portal_indices.size():
+      list[portal_indices[pi]][&"type"] = GameDB.peg_types[&"normal"]
+  ```
+
+  但目前布局用质数取模，portal 数量可能为 0。改用固定索引插入：在列表生成完成后，手动将第 5 和第 45 号钉设为 portal 并配对（若 list.size() > 45）：
+  ```gdscript
+  if list.size() > 45:
+      list[5][&"type"] = GameDB.peg_types[&"portal"]
+      list[5][&"portal_pair"] = 45
+      list[45][&"type"] = GameDB.peg_types[&"portal"]
+      list[45][&"portal_pair"] = 5
+  ```
+
+- [ ] **修改 `_draw()` 颜色逻辑**，统一用 `pt.glow`，并对 frozen/poisoned 叠加色：
+
+  找到：
+  ```gdscript
   if pt != null and pt.behavior == PegType.Behavior.MULT:
       col = Color(1.0, 0.55, 0.0)
   ```
-
-  **改后：**
+  替换为：
   ```gdscript
-  var col := Color(0.2, 0.9, 1.0)
   if pt != null:
-      col = pt.glow   # 直接用 PegType 的 glow 颜色，统一管理
+      col = pt.glow
+  # 冻结叠加浅蓝色
+  if peg.get(&"frozen", false):
+      col = col.lerp(Color(0.6, 0.9, 1.0), 0.6)
+  # 中毒叠加紫绿色
+  if peg.get(&"poisoned", false):
+      col = col.lerp(Color(0.3, 0.8, 0.2), 0.5)
   ```
 
-  > 这样 NORMAL=青色、MULT=橙色、CHAIN=蓝紫、BOMB=红色，后续新增类型只改 GameDB，不改 draw。
-
-- [ ] **运行测试**，预期 153 个测试全部通过（棋盘布局改动无新纯逻辑测试，既有物理测试覆盖回归）：
-  ```
-  D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
-  ```
-
-- [ ] **提交：**
+- [x] **运行测试**，预期 162 个全通过
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/board_view.gd
-  git -C D:/NeonPinball/game commit -m "feat: add CHAIN and BOMB pegs to honeycomb layout; use glow color"
+  git -C D:/NeonPinball/game commit -m "feat: layout 8 peg types in honeycomb; glow-color unified"
   ```
 
 ---
 
-## Task 3：实现 CHAIN 和 BOMB 命中行为
+## Task 3：实现命中行为
 
-- [ ] **修改** `view/board_view.gd` 的命中处理逻辑（`_on_peg_hit` 或等效位置）。实现时先阅读当前代码确认实际函数名和字段。
+在 `view/board_view.gd` 的命中处理段（`if e[&"type"] == SimEvent.PEG_HIT:` 块内），在计算 flash_color 之后，**先提取** `_score_peg` 辅助方法，然后按 behavior 分派。
 
-  **CHAIN 行为：** 命中 CHAIN 钉后，找到其 `CHAIN_RADIUS`（建议 60px）内所有未命中普通钉，对每个触发一次得分（不递归）：
+### 3.1 提取 `_score_peg` 辅助方法
 
-  ```gdscript
-  const CHAIN_RADIUS := 60.0
+```gdscript
+func _score_peg(peg: Dictionary) -> void:
+    var pt: PegType = peg.get(&"type")
+    var multiplier := 3.0 if peg.get(&"frozen", false) else 1.0
+    var neg := -1.0 if peg.get(&"poisoned", false) else 1.0
+    var base: float = peg.get(&"base_score", 5.0) * multiplier * neg
+    _score_ctx.pegs_hit += 1
+    _score_ctx.add(ScoreContext.KIND_ADD_BASE, base, &"peg")
+    peg[&"frozen"] = false
+    peg[&"poisoned"] = false
+    _flashes.append({&"pos": peg[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15,
+                     &"color": pt.glow if pt != null else Color.WHITE})
+```
 
-  func _trigger_chain(chain_peg: Dictionary) -> void:
-      for peg in _pegs:
-          if peg[&"id"] == chain_peg[&"id"]:
-              continue
-          if peg.get(&"hit", false):
-              continue
-          var dist: float = (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"])
-          if dist <= CHAIN_RADIUS:
-              _score_peg(peg)               # 计分（不触发物理命中）
-              _flashes.append({ &"pos": peg[&"pos"], &"ttl": 0.25, &"max_ttl": 0.25,
-                                 &"color": Color(0.5, 0.3, 1.0) })  # 蓝紫闪光
-  ```
+### 3.2 修改命中处理块
 
-  **BOMB 行为：** 命中 BOMB 钉后，`BOMB_RADIUS`（建议 80px）内所有钉计分并标记为 one_shot 移除：
+在 `if e[&"type"] == SimEvent.PEG_HIT:` 内，将现有 MULT 处理替换/扩展为按 behavior 分派：
 
-  ```gdscript
-  const BOMB_RADIUS := 80.0
+```gdscript
+if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
+    _peg_anims[hit_peg_id] = PEG_ANIM_DUR
+    var hit_peg: Dictionary = _pegs[hit_peg_id]
+    var hit_type: PegType = hit_peg.get(&"type")
+    var behavior := hit_type.behavior if hit_type != null else PegType.Behavior.NORMAL
 
-  func _trigger_bomb(bomb_peg: Dictionary) -> void:
-      var to_remove: Array = []
-      for peg in _pegs:
-          var dist: float = (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"])
-          if dist <= BOMB_RADIUS:
-              _score_peg(peg)
-              to_remove.append(peg)
-              _flashes.append({ &"pos": peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4,
-                                 &"color": Color(1.0, 0.4, 0.1) })  # 橙红闪光
-      for peg in to_remove:
-          _pegs.erase(peg)
-      _sim = _make_sim(_pegs)   # 重建物理模拟（钉已减少）
-      _juice.on_peg_hit(true)   # big hit juice
-  ```
+    match behavior:
+        PegType.Behavior.NORMAL:
+            _score_peg(hit_peg)
 
-  在 `_on_peg_hit` 里，按 behavior 分派：
+        PegType.Behavior.MULT:
+            _score_ctx.pegs_hit += 1
+            _score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
 
-  ```gdscript
-  # 在正常计分之后追加：
-  if pt != null:
-      if pt.behavior == PegType.Behavior.CHAIN:
-          _trigger_chain(peg)
-      elif pt.behavior == PegType.Behavior.BOMB:
-          _trigger_bomb(peg)
-  ```
+        PegType.Behavior.CHAIN:
+            _score_peg(hit_peg)
+            _trigger_chain(hit_peg)
 
-  > `_score_peg(peg)` 是需要提取的辅助方法，包含 ScoringEngine 更新 + flash 记录。实施时若无此方法，先将现有计分逻辑重构为该方法再调用。
+        PegType.Behavior.BOMB:
+            _trigger_bomb(hit_peg, hit_peg_id)
 
-- [ ] **运行测试**，预期 153 个测试全部通过（行为逻辑由手动游戏验证，headless 物理测试覆盖回归）：
-  ```
-  D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
-  ```
+        PegType.Behavior.FREEZE:
+            _score_peg(hit_peg)
+            _trigger_freeze(hit_peg)
 
-- [ ] **手动验证：**
-  - CHAIN 钉（蓝紫）被击中时，周围钉同时闪蓝紫光并计分
-  - BOMB 钉（红色）被击中时，周围区域大爆炸，钉子消失
-  - CHAIN/BOMB 的 glow 颜色正确显示
+        PegType.Behavior.JACKPOT:
+            _score_peg(hit_peg)
+            var jackpot_mult := randf_range(1.0, 10.0)
+            _score_ctx.add(ScoreContext.KIND_ADD_MULT, jackpot_mult, &"jackpot")
+            _flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4,
+                             &"color": Color(1.0, 0.9, 0.0)})
 
-- [ ] **提交：**
+        PegType.Behavior.LIFE:
+            RunMan.state[&"launches_left"] += 1
+            _sync_hud()
+            _score_peg(hit_peg)
+            if hit_type.one_shot:
+                _pegs.erase(hit_peg)
+                _sim = _make_sim(_pegs)
+
+        PegType.Behavior.POISON:
+            _score_peg(hit_peg)
+            _trigger_poison(hit_peg)
+            if hit_type.one_shot:
+                _pegs.erase(hit_peg)
+                _sim = _make_sim(_pegs)
+
+        PegType.Behavior.PORTAL:
+            _trigger_portal(hit_peg, hit_peg_id, i)   # i = ball index in _active_balls
+
+        PegType.Behavior.MAGNET:
+            _score_peg(hit_peg)
+            _trigger_magnet(hit_peg)
+
+    # one_shot 通用处理（LIFE/POISON/BOMB/JACKPOT 内部已单独处理）
+    if hit_type != null and hit_type.one_shot \
+       and behavior not in [PegType.Behavior.LIFE, PegType.Behavior.POISON, PegType.Behavior.BOMB]:
+        _pegs.erase(hit_peg)
+        _sim = _make_sim(_pegs)
+```
+
+### 3.3 各辅助方法
+
+```gdscript
+const CHAIN_RADIUS  := 60.0
+const BOMB_RADIUS   := 80.0
+const FREEZE_RADIUS := 60.0
+const POISON_RADIUS := 60.0
+const MAGNET_RADIUS := 50.0
+
+func _trigger_chain(chain_peg: Dictionary) -> void:
+    for peg in _pegs:
+        if peg[&"id"] == chain_peg[&"id"] or peg.get(&"hit", false):
+            continue
+        if (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"]) <= CHAIN_RADIUS:
+            _score_peg(peg)
+
+func _trigger_bomb(bomb_peg: Dictionary, bomb_id: int) -> void:
+    var to_remove: Array = []
+    for peg in _pegs:
+        if (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"]) <= BOMB_RADIUS:
+            _score_peg(peg)
+            to_remove.append(peg)
+    for peg in to_remove:
+        _pegs.erase(peg)
+    _sim = _make_sim(_pegs)
+    _juice.on_peg_hit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), true)
+
+func _trigger_freeze(freeze_peg: Dictionary) -> void:
+    for peg in _pegs:
+        if peg[&"id"] == freeze_peg[&"id"]:
+            continue
+        if (peg[&"pos"] as Vector2).distance_to(freeze_peg[&"pos"]) <= FREEZE_RADIUS:
+            peg[&"frozen"] = true
+
+func _trigger_poison(poison_peg: Dictionary) -> void:
+    for peg in _pegs:
+        if peg[&"id"] == poison_peg[&"id"]:
+            continue
+        var pt: PegType = peg.get(&"type")
+        if pt != null and pt.behavior != PegType.Behavior.NORMAL:
+            continue
+        if (peg[&"pos"] as Vector2).distance_to(poison_peg[&"pos"]) <= POISON_RADIUS:
+            peg[&"poisoned"] = true
+
+func _trigger_magnet(magnet_peg: Dictionary) -> void:
+    for peg in _pegs:
+        if peg[&"id"] == magnet_peg[&"id"] or peg.get(&"hit", false):
+            continue
+        if (peg[&"pos"] as Vector2).distance_to(magnet_peg[&"pos"]) <= MAGNET_RADIUS:
+            _score_peg(peg)
+
+func _trigger_portal(portal_peg: Dictionary, _portal_id: int, ball_idx: int) -> void:
+    var pair_idx: int = portal_peg.get(&"portal_pair", -1)
+    if pair_idx < 0 or pair_idx >= _pegs.size():
+        _score_peg(portal_peg)   # 无配对，退化为普通计分
+        return
+    var partner: Dictionary = _pegs[pair_idx]
+    # 瞬移当前发射球到 partner 位置，保留速度方向
+    if ball_idx >= 0 and ball_idx < _active_balls.size():
+        _active_balls[ball_idx].pos = partner[&"pos"] + Vector2(0, -20)
+        # 截断后续已计算的事件（它们基于旧位置），避免幽灵命中
+        _events.resize(_event_cursor + 1)
+    _flashes.append({&"pos": portal_peg[&"pos"], &"ttl": 0.3, &"max_ttl": 0.3,
+                     &"color": Color(0.7, 1.0, 1.0)})
+    _flashes.append({&"pos": partner[&"pos"], &"ttl": 0.3, &"max_ttl": 0.3,
+                     &"color": Color(0.7, 1.0, 1.0)})
+```
+
+- [x] **注意**：Portal 用 hit_pos 找最近活球，避免依赖 ball index。
+- [x] **运行测试**，预期 162 个全通过
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/board_view.gd
-  git -C D:/NeonPinball/game commit -m "feat: CHAIN peg chain-triggers neighbors; BOMB peg clears area"
+  git -C D:/NeonPinball/game commit -m "feat: implement CHAIN/BOMB/FREEZE/JACKPOT/LIFE/POISON/PORTAL/MAGNET behaviors"
   ```
-
----
-
-## 文件结构
-
-**新建：**
-- `tests/test_peg_types.gd` — 3 个 GameDB 注册测试
-
-**修改：**
-- `data/game_database.gd` — 注册 chain、bomb PegType
-- `view/board_view.gd` — 布局插入新钉；颜色用 glow 统一；实现 CHAIN/BOMB 行为
 
 ---
 
 ## 自检清单
 
-- [ ] 153 个测试全部通过（150 基线 + 3 新增）
-- [ ] 棋盘出现蓝紫色 CHAIN 钉和红色 BOMB 钉
-- [ ] CHAIN 钉命中时周围钉蓝紫闪光并计分
-- [ ] BOMB 钉命中时周围红色爆炸，钉消失，物理模拟正确更新
-- [ ] MULT 钉（橙色）行为不变
-- [ ] 无物理/计分回归
-
----
-
-## 已知局限 / 留待后续
-
-- CHAIN 不递归（链式 CHAIN 不触发第二层 CHAIN），避免无限循环；后续可加递归深度参数
-- BOMB 重建 `_sim` 开销较大；若频繁爆炸可优化为增量更新
-- SPAWN 枚举值（生成新球）留待后续实现
-- 钉子比例（CHAIN ~5%，BOMB ~3%）为初始值，建议游戏测试后调整
+- [x] 162 个测试全部通过（156 基线 +6 新增）
+- [x] 棋盘出现 8 种颜色的钉子
+- [x] CHAIN（蓝紫）：命中时周围钉同时闪光计分
+- [x] BOMB（红）：命中时周围爆炸，钉消失
+- [x] FREEZE（浅蓝）：命中后周围钉变浅蓝，下次被打得分×3
+- [x] JACKPOT（金）：命中时随机大倍数，one-shot
+- [x] LIFE（绿）：命中后发球数+1，one-shot
+- [x] POISON（紫绿）：命中后周围普通钉变毒色，被打扣分
+- [x] PORTAL（青白）：球命中后瞬移到配对 portal 位置
+- [x] MAGNET（蓝白）：命中后周围未打钉直接计分（不消失）
+- [x] MULT（橙）行为不变
+- [x] 无物理/计分回归
