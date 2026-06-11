@@ -98,7 +98,7 @@ func _generate_pegs() -> Array:
 	var depth := (ante - 1) * 3 + ria   # 0 (ante1 r1) … 23 (ante8 boss)
 	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]) + _launch_count, 0x9E3779B9)
 
-	var count := rng.range_int(12 + ante * 2, 16 + ante * 3)
+	var count := rng.range_int(25 + ante * 2, 38 + ante * 3)
 
 	# Placeable area: inside board, above funnel, with margins
 	var margin := 44.0
