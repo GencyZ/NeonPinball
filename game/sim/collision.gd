@@ -75,6 +75,8 @@ static func swept_segment(p: Vector2, d: Vector2, r: float,
 	for sign_f: float in [1.0, -1.0]:
 		if abs(dd) < 1e-9:
 			continue
+		if sign_f * dd >= 0.0:
+			continue  # ball moving away from this face
 		var t: float = (sign_f * r - d0) / dd
 		if t < 0.0 or t > 1.0:
 			continue
@@ -90,7 +92,7 @@ static func swept_segment(p: Vector2, d: Vector2, r: float,
 	# 端点 cap
 	for cap: Vector2 in [seg_a, seg_b]:
 		var t: float = swept_circle(p, d, cap, r)
-		if t >= 0.0 and t < best_t:
+		if t > 1e-5 and t < best_t:
 			best_t = t
 			best_n = (p + d * t - cap).normalized()
 			found = true

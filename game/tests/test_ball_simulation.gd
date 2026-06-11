@@ -55,3 +55,41 @@ func test_bounce_event_emitted_on_wall() -> void:
 		sim.step(ball, events)
 	var wall_hits := events.filter(func(e): return e[&"type"] == SimEvent.WALL_HIT)
 	assert_gt(wall_hits.size(), 0, "wall hit event emitted")
+
+func test_ball_bounces_off_wall_segment():
+	# Custom wall segment at x=200; ball bounces with per-segment restitution 0.5
+	var sim := BallSimulation.new(Rect2(0, 0, 540, 900), [], {
+		&"gravity": Vector2.ZERO, &"max_speed": 4000.0,
+		&"restitution": 0.8, &"tangent_keep": 1.0, &"dt": 1.0 / 120.0})
+	sim.set_wall_segs([
+		{&"a": Vector2(200, 0), &"b": Vector2(200, 300), &"restitution": 0.5}
+	])
+	var ball := BallState.new(Vector2(100, 100), Vector2(1200, 0), 8.0)
+	var events: Array = []
+	for _i in 20:
+		sim.step(ball, events)
+		if not events.is_empty():
+			break
+	var wall_hits := events.filter(func(e): return e[&"type"] == SimEvent.WALL_HIT)
+	assert_gt(wall_hits.size(), 0, "wall collision should be detected")
+	assert_true(ball.vel.x < 0.0, "ball should bounce left")
+	assert_almost_eq(abs(ball.vel.x), 600.0, 50.0, "per-seg restitution 0.5 applied")
+
+func test_wall_seg_low_restitution():
+	# Funnel-like segment with low restitution 0.05; ball barely bounces back
+	var sim := BallSimulation.new(Rect2(0, 0, 540, 900), [], {
+		&"gravity": Vector2.ZERO, &"max_speed": 4000.0,
+		&"restitution": 0.8, &"tangent_keep": 1.0, &"dt": 1.0 / 120.0})
+	sim.set_wall_segs([
+		{&"a": Vector2(200, 0), &"b": Vector2(200, 300), &"restitution": 0.05}
+	])
+	var ball := BallState.new(Vector2(100, 100), Vector2(1200, 0), 8.0)
+	var events: Array = []
+	for _i in 20:
+		sim.step(ball, events)
+		if not events.is_empty():
+			break
+	var wall_hits := events.filter(func(e): return e[&"type"] == SimEvent.WALL_HIT)
+	assert_gt(wall_hits.size(), 0, "should hit wall")
+	assert_true(ball.vel.x < 0.0, "ball bounces back")
+	assert_true(ball.vel.x > -100.0, "very low bounce with restitution 0.05")
