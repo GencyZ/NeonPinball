@@ -252,6 +252,7 @@ func launch(ball: BallState) -> void:
 	RunMan.spend_launch()
 	_sync_hud()
 	_score_ctx.clear_for_launch()
+	_rebuild_wall_segs(false)  # open active gate for new ball
 	_active_balls = [ball]
 	_gate_applied = false
 	_has_ball = _active_balls.size() > 0
@@ -287,6 +288,7 @@ func _process(delta: float) -> void:
 				if crossed:
 					_active_balls = _gate_chain.process(b)
 					_gate_applied = true
+					_rebuild_wall_segs(true)  # seal gate
 					# Resize position arrays for new ball count
 					_prev_positions.resize(_active_balls.size())
 					_curr_positions.resize(_active_balls.size())
