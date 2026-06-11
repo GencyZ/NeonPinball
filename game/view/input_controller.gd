@@ -65,11 +65,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if cur_phase == RunManager.Phase.SHOP:
 			_handle_shop_key(event.keycode)
 			return
-		# Win/Lose: R to restart
-		if event.keycode == KEY_R and (cur_phase == RunManager.Phase.RUN_WIN or cur_phase == RunManager.Phase.RUN_LOSE):
-			RunMan.advance()   # WIN/LOSE → _reset() → BOOT
-			_board.get_tree().reload_current_scene()
-			return
+		# Win/Lose: R=restart fresh run, Esc=back to main menu
+		if cur_phase == RunManager.Phase.RUN_WIN or cur_phase == RunManager.Phase.RUN_LOSE:
+			if event.keycode == KEY_R:
+				SceneMan.start_run()
+				return
+			if event.keycode == KEY_ESCAPE:
+				SceneMan.goto_menu()
+				return
 		match event.keycode:
 			KEY_TAB:
 				_edge = (_edge + 1) % 3

@@ -43,3 +43,7 @@ func test_menu_scene_loads_without_error() -> void:
 
 func test_menu_scene_path_exists() -> void:
 	assert_true(ResourceLoader.exists("res://scenes/main_menu.tscn"), "main_menu.tscn 存在")
+
+func test_board_scene_still_loads() -> void:
+	assert_true(ResourceLoader.exists("res://scenes/board.tscn"), "board.tscn 仍存在")
+	assert_not_null(load("res://view/input_controller.gd"), "input_controller.gd 编辑后仍能解析")
