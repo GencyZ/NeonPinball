@@ -525,6 +525,41 @@ func _draw_gate() -> void:
 	draw_line(edge_p1, p1, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
 	draw_line(edge_p2, p2, Color(gate_color.r, gate_color.g, gate_color.b, 0.25), 1.0)
 
+func _draw_walls() -> void:
+	var cyan   := Color(0.0, 0.9, 1.0, 0.9)
+	var g_open := Color(0.0, 1.0, 0.5, 0.9)
+	var orange := Color(1.0, 0.55, 0.0, 0.9)
+	var o := _rect.position
+
+	# Draw each edge wall (two segments around its gate)
+	for edge in [EntryResolver.BoardEdge.LEFT, EntryResolver.BoardEdge.TOP,
+				 EntryResolver.BoardEdge.RIGHT]:
+		var segs: Array = _wall_segs_for_edge(edge)
+		for seg in segs:
+			draw_line(seg[&"a"], seg[&"b"], cyan, 2.5)
+
+	# Draw funnel walls
+	draw_line(o + Vector2(0, 780),   o + Vector2(240, 900), orange, 2.5)
+	draw_line(o + Vector2(540, 780), o + Vector2(300, 900), orange, 2.5)
+
+	# Draw gates (green=open, cyan=closed)
+	for edge in [EntryResolver.BoardEdge.LEFT, EntryResolver.BoardEdge.TOP,
+				 EntryResolver.BoardEdge.RIGHT]:
+		var is_open: bool = (edge == _entry_edge and not _gate_applied)
+		var col := g_open if is_open else cyan
+		var seg := _gate_seg(edge)
+		draw_line(seg[&"a"], seg[&"b"], col, 3.0)
+
+	# Draw channel lines (visual only) for active launcher
+	var lp: Vector2 = EntryResolver.LAUNCHER_POS[_entry_edge]
+	var glocal: Array = _GATE_LOCAL[_entry_edge]
+	draw_line(o + glocal[0], lp, Color(cyan, 0.4), 1.5)
+	draw_line(o + glocal[1], lp, Color(cyan, 0.4), 1.5)
+
+	# Draw launcher indicator (crosshair circle)
+	draw_circle(lp, 8.0, Color(1.0, 0.3, 1.0, 0.9))
+	draw_circle(lp, 5.0, Color(0.1, 0.0, 0.15, 1.0))
+
 func _draw() -> void:
 	for peg in _pegs:
 		var pt: PegType = peg.get(&"type")
@@ -541,8 +576,7 @@ func _draw() -> void:
 			var prog := 1.0 - anim_ttl / PEG_ANIM_DUR
 			radius *= 1.0 + PEG_ANIM_SCALE * sin(prog * PI)
 		draw_circle(peg[&"pos"], radius, col)
-	if not _has_ball:
-		_draw_gate()
+	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
 	for fan in prediction_fans:
