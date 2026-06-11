@@ -111,7 +111,7 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
 
 **改动：** `board_view.gd`、`input_controller.gd`
 
-- [ ] **修改 `board_view.gd`**：新增 `buy_shop_slot(slot: int) -> void` 公共方法，把购买逻辑从 input_controller 搬过来。
+- [x] **修改 `board_view.gd`**：新增 `buy_shop_slot(slot: int) -> void` 公共方法，把购买逻辑从 input_controller 搬过来。
 
   在 `leave_shop()` 附近插入：
 
@@ -136,7 +136,7 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
       _sync_hud()
   ```
 
-- [ ] **修改 `input_controller.gd`**：`_handle_shop_key()` 改为薄委托，删除原购买逻辑。
+- [x] **修改 `input_controller.gd`**：`_handle_shop_key()` 改为薄委托，删除原购买逻辑。
 
   **改前：**
   ```gdscript
@@ -183,13 +183,13 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
               _board.leave_shop()
   ```
 
-- [ ] **运行测试**，确认购买逻辑迁移后行为不变：
+- [x] **运行测试**，确认购买逻辑迁移后行为不变：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
   **预期：** 150 个测试全部通过，退出码 0。
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/board_view.gd view/input_controller.gd
   git -C D:/NeonPinball/game commit -m "refactor: move shop buy logic to board_view.buy_shop_slot()"
@@ -201,7 +201,7 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
 
 **改动：** `hud.gd`
 
-- [ ] **修改 `hud.gd`**：
+- [x] **修改 `hud.gd`**：
 
   **声明区**：把 Label 数组改为 Button 数组，新增信号和 Continue 按钮变量：
 
@@ -286,13 +286,13 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
   > - 买不起：`disabled = true`、灰色（无法点击）
   > - 已购买：`disabled = true`、深灰 + "SOLD" 文字
 
-- [ ] **运行测试**：
+- [x] **运行测试**：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
   **预期：** 150 个测试全部通过（hud 改动无纯逻辑新测试，冒烟由既有 board 测试覆盖）。
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/hud.gd
   git -C D:/NeonPinball/game commit -m "feat: shop panel uses Button slots with signals (shop_slot_pressed / shop_continue_pressed)"
@@ -304,7 +304,7 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
 
 **改动：** `board_view.gd`
 
-- [ ] **修改 `board_view.gd` 的 `_ready()`**：连接 HUD 商店信号。
+- [x] **修改 `board_view.gd` 的 `_ready()`**：连接 HUD 商店信号。
 
   在 `_ready()` 末尾追加：
 
@@ -317,13 +317,13 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
 
   > `buy_shop_slot` 和 `leave_shop` 都是 `board_view` 的方法，`connect` 直接传方法引用即可，无需 lambda。
 
-- [ ] **运行测试**：
+- [x] **运行测试**：
   ```
   D:/Program/Godot/godot.exe --headless --path D:/NeonPinball/game -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gexit
   ```
   **预期：** 150 个测试全部通过，退出码 0。
 
-- [ ] **提交：**
+- [x] **提交：**
   ```
   git -C D:/NeonPinball/game add view/board_view.gd
   git -C D:/NeonPinball/game commit -m "feat: connect HUD shop signals to board_view (mouse buy/continue)"
@@ -347,13 +347,13 @@ var offerings: Array   # Array[Dictionary{item, price, sold}]
 
 ## 自检清单
 
-- [ ] 150 个基线测试全部通过（无回归）
-- [ ] 商店阶段：4 个物品槽显示为按钮，点击可购买
-- [ ] 买得起的物品：按钮可点、黄色；买不起：灰色禁用；已购买：灰色 SOLD
-- [ ] "Continue →" 按钮点击后进入下一轮
-- [ ] 键盘 1-4 / Space 仍然生效（input_controller 委托路径正常）
-- [ ] 购买后按钮状态立即刷新（show_shop 重调）
-- [ ] 无回归：局内弹球、商店键盘、WIN/LOSE 按钮等原有功能正常
+- [x] 150 个基线测试全部通过（无回归）
+- [x] 商店阶段：4 个物品槽显示为按钮，点击可购买
+- [x] 买得起的物品：按钮可点、黄色；买不起：灰色禁用；已购买：灰色 SOLD
+- [x] "Continue →" 按钮点击后进入下一轮
+- [x] 键盘 1-4 / Space 仍然生效（input_controller 委托路径正常）
+- [x] 购买后按钮状态立即刷新（show_shop 重调）
+- [x] 无回归：局内弹球、商店键盘、WIN/LOSE 按钮等原有功能正常
 
 ---
 
