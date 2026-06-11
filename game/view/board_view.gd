@@ -79,6 +79,9 @@ func _ready() -> void:
 	else:
 		$Hud.set_gate_label("Daily #%d" % int(RunMan.state[&"master_seed"]))
 
+	$Hud.shop_slot_pressed.connect(buy_shop_slot)
+	$Hud.shop_continue_pressed.connect(leave_shop)
+
 func _build_honeycomb() -> Array:
 	var list := []
 	var id := 0
