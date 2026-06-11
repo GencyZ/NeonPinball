@@ -52,6 +52,7 @@ func _ready() -> void:
 	_rect = Rect2(135, 225, 540, 900)
 	_pegs = _build_honeycomb()
 	_sim = _make_sim(_pegs)
+	_rebuild_wall_segs(false)  # active gate open, others closed
 	_engine = ScoringEngine.new()
 	_score_ctx = ScoreContext.new()
 	_juice = JuiceControllerScript.new()
@@ -124,6 +125,56 @@ func _make_sim(pegs: Array) -> BallSimulation:
 		&"restitution": 0.82, &"tangent_keep": 0.98, &"dt": DT,
 	})
 
+const WALL_REST := 0.82
+const FUNNEL_REST := 0.05
+
+const _GATE_LOCAL := {
+	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 115),   Vector2(0, 155)],
+	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 115),  Vector2(540, 155)],
+	EntryResolver.BoardEdge.TOP:   [Vector2(195, 0),    Vector2(255, 0)],
+}
+
+func _funnel_segs() -> Array:
+	var o := _rect.position
+	return [
+		{&"a": o + Vector2(0, 780),   &"b": o + Vector2(240, 900), &"restitution": FUNNEL_REST},
+		{&"a": o + Vector2(540, 780), &"b": o + Vector2(300, 900), &"restitution": FUNNEL_REST},
+	]
+
+func _wall_segs_for_edge(edge: int) -> Array:
+	var o := _rect.position
+	var g: Array = _GATE_LOCAL[edge]
+	match edge:
+		EntryResolver.BoardEdge.LEFT:
+			return [
+				{&"a": o + Vector2(0, 0),   &"b": o + g[0], &"restitution": WALL_REST},
+				{&"a": o + g[1], &"b": o + Vector2(0, 780), &"restitution": WALL_REST},
+			]
+		EntryResolver.BoardEdge.RIGHT:
+			return [
+				{&"a": o + Vector2(540, 0),   &"b": o + g[0], &"restitution": WALL_REST},
+				{&"a": o + g[1], &"b": o + Vector2(540, 780), &"restitution": WALL_REST},
+			]
+		_:  # TOP
+			return [
+				{&"a": o + Vector2(0, 0),   &"b": o + g[0], &"restitution": WALL_REST},
+				{&"a": o + g[1], &"b": o + Vector2(540, 0), &"restitution": WALL_REST},
+			]
+
+func _gate_seg(edge: int) -> Dictionary:
+	var o := _rect.position
+	var g: Array = _GATE_LOCAL[edge]
+	return {&"a": o + g[0], &"b": o + g[1], &"restitution": WALL_REST}
+
+func _rebuild_wall_segs(close_active_gate: bool) -> void:
+	var segs: Array = _funnel_segs()
+	for edge in [EntryResolver.BoardEdge.LEFT, EntryResolver.BoardEdge.TOP,
+				 EntryResolver.BoardEdge.RIGHT]:
+		segs.append_array(_wall_segs_for_edge(edge))
+		if close_active_gate or edge != _entry_edge:
+			segs.append(_gate_seg(edge))
+	_sim.set_wall_segs(segs)
+
 func set_active_gate(gate_id: StringName) -> void:
 	_active_gate_def = GameDB.gate_defs[gate_id]
 	var rng := DeterministicRng.new(_launch_count * 1000 + (gate_id.hash() & 0x7FFFFFFF))
@@ -167,6 +218,7 @@ func _apply_boss_mod() -> void:
 			for i in _pegs.size():
 				_pegs[i][&"id"] = i
 			_sim = _make_sim(_pegs)
+			_rebuild_wall_segs(_gate_applied)
 
 func _refresh_equipped() -> void:
 	_trigger_runtimes.clear()
@@ -274,6 +326,7 @@ func _process(delta: float) -> void:
 								_flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4, &"color": Color(1.0, 0.9, 0.0)})
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_rebuild_wall_segs(_gate_applied)
 									_events.resize(_event_cursor + 1)
 							PegType.Behavior.LIFE:
 								RunMan.state[&"launches_left"] += 1
@@ -281,12 +334,14 @@ func _process(delta: float) -> void:
 								_score_peg(hit_peg)
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_rebuild_wall_segs(_gate_applied)
 									_events.resize(_event_cursor + 1)
 							PegType.Behavior.POISON:
 								_score_peg(hit_peg)
 								_trigger_poison(hit_peg)
 								if hit_type.one_shot:
 									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+									_rebuild_wall_segs(_gate_applied)
 									_events.resize(_event_cursor + 1)
 							PegType.Behavior.PORTAL:
 								_trigger_portal(hit_peg, e[&"pos"])
@@ -413,6 +468,7 @@ func leave_shop() -> void:
 	# Rebuild board for the new round
 	_pegs = _build_honeycomb()
 	_sim = _make_sim(_pegs)
+	_rebuild_wall_segs(_gate_applied)
 	_apply_boss_mod()
 	_refresh_equipped()
 	_sync_hud()
@@ -545,6 +601,7 @@ func _trigger_bomb(bomb_peg: Dictionary) -> void:
 	for peg in to_remove:
 		_pegs.erase(peg)
 	_sim = _make_sim(_pegs)
+	_rebuild_wall_segs(_gate_applied)
 	# 清除旧 sim 预计算的事件（下标已失效），让下一帧用新 sim 重新生成
 	_events.resize(_event_cursor + 1)
 	_juice.on_peg_hit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), true)
