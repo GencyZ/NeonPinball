@@ -22,6 +22,20 @@ func on_peg_hit(pos: Vector2, color: Color, big: bool) -> void:
 	shake.add(0.3 if big else 0.12)
 	particles.emit(pos, color, 14 if big else 6)
 
+# 连击 → 屏震幅度（combo 1 与原小击 0.12 一致，封顶 0.4）
+static func shake_mag_for_combo(n: int) -> float:
+	return minf(0.12 + 0.02 * float(n - 1), 0.4)
+
+# 连击 → 逐击顿帧时长（秒，封顶 0.090）
+static func hitstop_duration_for_combo(n: int) -> float:
+	return minf(0.025 + 0.006 * float(n - 1), 0.090)
+
+# 连击感知的击中反馈：屏震/顿帧/粒子随 combo 放大。
+func on_peg_hit_combo(pos: Vector2, color: Color, combo: int) -> void:
+	shake.add(shake_mag_for_combo(combo))
+	particles.emit(pos, color, 6 + mini(combo, 12))
+	slowmo.request(0.05, hitstop_duration_for_combo(combo))
+
 func on_settle(pos: Vector2, score: float, is_final_launch: bool) -> void:
 	floaters.add(pos, "+%d" % int(score))
 	shake.add(0.2)
