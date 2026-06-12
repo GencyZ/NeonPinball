@@ -151,6 +151,11 @@ board_view 事件处理：_combo += 1
 
 本期**不做**，按用户意愿记录，后期可能加：
 
+**逐击顿帧 hit-stop（已实现后回退到备用项）**
+- 实机感觉太突兀：弹球高频连撞 + `Engine.time_scale` 瞬切 1.0↔0.05↔1.0 会连续卡顿。
+- 当前已在 `juice/juice_controller.gd` 的 `on_peg_hit_combo` 注释掉 `slowmo.request(...)`；`hitstop_duration_for_combo` 曲线函数保留。
+- 后期重启思路（择一）：①恢复时用缓动**渐回** 1.0 而非瞬切；②只在关键时刻顿（炸弹/jackpot/高连击里程碑），普通钉不顿。
+
 **B 视觉/触觉补充**
 - peg pop（命中时缩放挤压回弹）
 - 球拖尾（速度越快拖尾越长）

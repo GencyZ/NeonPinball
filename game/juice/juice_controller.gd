@@ -31,11 +31,13 @@ static func shake_mag_for_combo(n: int) -> float:
 static func hitstop_duration_for_combo(n: int) -> float:
 	return minf(0.025 + 0.006 * float(n - 1), 0.090)
 
-# 连击感知的击中反馈：屏震/顿帧/粒子随 combo 放大。
+# 连击感知的击中反馈：屏震/粒子随 combo 放大。
+# 逐击顿帧暂时关闭——实机感觉太突兀（弹球高频连撞会连续卡顿）。
+# 保留 hitstop_duration_for_combo 曲线，方便以后改用"平滑恢复"或"只在关键时刻"再启用。
 func on_peg_hit_combo(pos: Vector2, color: Color, combo: int) -> void:
 	shake.add(shake_mag_for_combo(combo))
 	particles.emit(pos, color, 6 + mini(combo, 12))   # 6→18 粒子随 combo
-	slowmo.request(0.05, hitstop_duration_for_combo(combo))
+	#slowmo.request(0.05, hitstop_duration_for_combo(combo))   # 逐击顿帧（已禁用，见上方注释）
 
 func on_settle(pos: Vector2, score: float, is_final_launch: bool) -> void:
 	floaters.add(pos, "+%d" % int(score))

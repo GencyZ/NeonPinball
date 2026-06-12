@@ -84,11 +84,12 @@ func test_combo_hit_higher_combo_more_trauma() -> void:
 	b.on_peg_hit_combo(Vector2.ZERO, Color.RED, 8)
 	assert_gt(b.shake.trauma, a.shake.trauma, "连击越高屏震越强")
 
-func test_combo_hit_requests_hitstop() -> void:
+func test_combo_hit_no_hitstop() -> void:
+	# 逐击顿帧已禁用（实机太突兀）；普通击中不应改变时间缩放。
 	var jc := JuiceControllerScript.new()
 	jc.on_peg_hit_combo(Vector2.ZERO, Color.RED, 3)
 	jc.update(0.016)
-	assert_lt(jc.time_scale(), 1.0, "逐击产生顿帧（time_scale<1）")
+	assert_almost_eq(jc.time_scale(), 1.0, 1e-4, "逐击不再产生顿帧")
 
 func test_combo_hit_emits_particles() -> void:
 	var jc := JuiceControllerScript.new()
