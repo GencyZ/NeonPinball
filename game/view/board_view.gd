@@ -415,9 +415,10 @@ func _process(delta: float) -> void:
 								_score_peg(hit_peg)
 								_trigger_magnet(hit_peg)
 						var flash_color: Color = hit_type.glow if hit_type != null else Color.from_hsv(randf(), 0.85, 1.0)
+						var halo_col := Color.from_hsv(randf(), 1.0, 1.0)
 						_peg_halos.append({&"pos": hit_peg[&"pos"],
 							&"r0": hit_peg[&"radius"], &"r1": hit_peg[&"radius"] + HALO_EXPAND,
-							&"ttl": HALO_DUR, &"max_ttl": HALO_DUR, &"color": flash_color})
+							&"ttl": HALO_DUR, &"max_ttl": HALO_DUR, &"color": halo_col})
 						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
 					else:
 						_score_ctx.pegs_hit += 1
