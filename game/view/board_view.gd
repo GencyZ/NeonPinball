@@ -106,7 +106,7 @@ func _generate_pegs() -> Array:
 		_rect.position.x + margin,
 		_rect.position.y + margin + 80.0,   # extra top gap for channel walls
 		_rect.size.x - margin * 2.0,
-		740.0 - margin)                      # stop above funnel (local y=780)
+		780.0 - margin * 2.0 - 80.0)        # height fits above funnel (local y < 780)
 
 	var special_rate := minf(float(depth) / 23.0 * 0.55, 0.55)
 	var type_pool := _build_type_pool(depth)
