@@ -9,7 +9,7 @@ static func pitch_scale_for_combo(n: int) -> float:
 	return pow(2.0, float(PENTATONIC[idx]) / 12.0)
 
 # 程序化生成一个短促"叮"：正弦载波 + 快速指数衰减包络（霓虹合成器味）。
-static func make_ping(sample_rate := 22050) -> AudioStreamWAV:
+static func make_ping(sample_rate: int = 22050) -> AudioStreamWAV:
 	var dur := 0.14
 	var count := int(sample_rate * dur)
 	var data := PackedByteArray()

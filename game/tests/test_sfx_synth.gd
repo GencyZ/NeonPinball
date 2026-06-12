@@ -32,3 +32,6 @@ func test_make_ping_returns_nonempty_wav() -> void:
 	assert_true(s is AudioStreamWAV, "返回 AudioStreamWAV")
 	assert_gt(s.data.size(), 0, "波形数据非空")
 	assert_eq(s.mix_rate, 22050, "默认采样率 22050")
+	assert_eq(s.format, AudioStreamWAV.FORMAT_16_BITS, "16-bit 格式")
+	assert_false(s.stereo, "单声道")
+	assert_eq(s.data.size(), int(22050 * 0.14) * 2, "字节数 = 采样数 × 2")
