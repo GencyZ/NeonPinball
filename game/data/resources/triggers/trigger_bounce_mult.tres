@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TriggerDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/trigger_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bounce_mult"
+listen_mask = 2
+effect = 1
+value = 0.2
+condition = 0
+condition_threshold = 0
+rarity = 0

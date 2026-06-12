@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="PegType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/peg_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"chain"
+behavior = 2
+base_score = 6.0
+mult_add = 0.0
+one_shot = false
+glow = Color(0.5, 0.3, 1.0, 1.0)

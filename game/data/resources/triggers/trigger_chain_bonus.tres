@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TriggerDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/trigger_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"chain_bonus"
+listen_mask = 4
+effect = 0
+value = 10.0
+condition = 2
+condition_threshold = 3
+rarity = 1
