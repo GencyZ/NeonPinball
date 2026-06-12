@@ -341,6 +341,7 @@ func launch(ball: BallState) -> void:
 	_sync_hud()
 	_score_ctx.clear_for_launch()
 	_combo = 0
+	_combo_display_ttl = 0.0
 	_rebuild_wall_segs(false)  # open active gate for new ball
 	_active_balls = [ball]
 	_gate_applied = false
@@ -691,10 +692,10 @@ func _draw() -> void:
 	if _combo >= 2 and _combo_display_ttl > 0.0:
 		var f := ThemeDB.fallback_font
 		var frac := _combo_display_ttl / COMBO_DISPLAY_DUR
-		var fsize := 28 + mini(_combo, 20) * 2
+		var fsize := 28 + mini(_combo, 20) * 2   # 基准 28px，随 combo 增大，封顶 68px
 		var col := Color(1.0, 1.0, 1.0, frac)
 		draw_string(f, _last_hit_pos + Vector2(-14, -22), "x%d" % _combo,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
+			HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)   # 偏移：命中点左上方
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
@@ -759,7 +760,8 @@ func _trigger_bomb(bomb_peg: Dictionary) -> void:
 	_rebuild_wall_segs(_gate_applied)
 	# 清除旧 sim 预计算的事件（下标已失效），让下一帧用新 sim 重新生成
 	_events.resize(_event_cursor + 1)
-	_juice.on_peg_hit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), true)
+	# 炸弹爆炸迸射；冲击的屏震/顿帧已由 PEG_HIT 处的 on_peg_hit_combo 统一处理，避免双重叠加
+	_juice.particles.emit(bomb_peg[&"pos"], Color(1.0, 0.4, 0.1), 18)
 
 func _trigger_freeze(freeze_peg: Dictionary) -> void:
 	for peg in _pegs:
