@@ -74,6 +74,8 @@ func test_hitstop_monotonic_and_within_range() -> void:
 		assert_between(d, 0.025, 0.090, "顿帧时长落在 [0.025,0.090] @%d" % n)
 		assert_true(JuiceControllerScript.hitstop_duration_for_combo(n + 1)
 			>= JuiceControllerScript.hitstop_duration_for_combo(n), "顿帧单调不降 @%d" % n)
+	assert_almost_eq(JuiceControllerScript.hitstop_duration_for_combo(99), 0.090, 1e-4,
+		"顿帧封顶 0.090")
 
 func test_combo_hit_higher_combo_more_trauma() -> void:
 	var a := JuiceControllerScript.new()
