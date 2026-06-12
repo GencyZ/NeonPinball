@@ -1,7 +1,8 @@
 extends Control
 
-const SaveSystemScript := preload("res://run/save_system.gd")
+const SaveSystemScript    := preload("res://run/save_system.gd")
 const SettingsSystemScript := preload("res://run/settings_system.gd")
+const UnlockManagerScript  := preload("res://run/unlock_manager.gd")
 
 func _ready() -> void:
 	call_deferred(&"_apply_saved_window_size")
@@ -41,6 +42,20 @@ func _build_ui(saved: Dictionary) -> void:
 	quit_btn.custom_minimum_size = Vector2(300, 64)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	add_child(quit_btn)
+
+	# ---- 解锁进度 ----
+	var runs := int(saved.get(&"runs_completed", 0))
+	var nxt: Dictionary = UnlockManagerScript.next_unlock(runs)
+	var unlock_lbl := Label.new()
+	if nxt.is_empty():
+		unlock_lbl.text = "All content unlocked!"
+	else:
+		var need: int = int(nxt["required_runs"]) - runs
+		unlock_lbl.text = "Next unlock in %d run%s" % [need, "s" if need > 1 else ""]
+	unlock_lbl.add_theme_font_size_override(&"font_size", 16)
+	unlock_lbl.modulate = Color(0.6, 1.0, 0.7)
+	unlock_lbl.position = Vector2(180, 580)
+	add_child(unlock_lbl)
 
 	# ---- 分辨率 ----
 	var res_label := Label.new()

@@ -6,10 +6,9 @@ func test_triggers_registered() -> void:
     assert_true(GameDB.triggers.has(&"big_hit"),      "big_hit registered")
 
 func test_gates_registered() -> void:
-    assert_true(GameDB.gate_defs.has(&"normal"),        "normal gate registered")
-    assert_true(GameDB.gate_defs.has(&"accel"),         "accel gate registered")
-    assert_true(GameDB.gate_defs.has(&"scatter_angle"), "scatter_angle gate registered")
-    assert_true(GameDB.gate_defs.has(&"scatter_split"), "scatter_split gate registered")
+    assert_true(GameDB.gate_defs.has(&"normal"), "normal gate always available")
+    assert_true(GameDB.gate_defs.has(&"accel"),  "accel gate always available")
+    # scatter_angle (5 runs) and scatter_split (12 runs) are unlock-gated
 
 func test_peg_bonus_definition() -> void:
     var t: TriggerDef = GameDB.triggers[&"peg_bonus"]
@@ -27,6 +26,3 @@ func test_accel_gate_speed_mul() -> void:
     var g: GateDef = GameDB.gate_defs[&"accel"]
     assert_almost_eq(g.speed_mul, 1.5, 1e-4)
 
-func test_scatter_split_count() -> void:
-    var g: GateDef = GameDB.gate_defs[&"scatter_split"]
-    assert_eq(g.split_count, 3)

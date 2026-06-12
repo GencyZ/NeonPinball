@@ -4,8 +4,16 @@ var triggers: Dictionary = {}
 var gate_defs: Dictionary = {}
 var peg_types: Dictionary = {}
 
+const SaveSystemScript   := preload("res://run/save_system.gd")
+const UnlockManagerScript := preload("res://run/unlock_manager.gd")
+
 func _ready() -> void:
     _register_defaults()
+    _apply_unlocks()
+
+func _apply_unlocks() -> void:
+    var saved := SaveSystemScript.load_data()
+    UnlockManagerScript.apply_unlocks(self, int(saved.get(&"runs_completed", 0)))
 
 func _register_defaults() -> void:
     # --- Peg types ---

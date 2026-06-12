@@ -26,8 +26,8 @@ func test_channel_dir_points_toward_gate() -> void:
 	for edge in [EntryResolver.BoardEdge.TOP, EntryResolver.BoardEdge.LEFT,
 				 EntryResolver.BoardEdge.RIGHT]:
 		var cd := EntryResolver.channel_dir(edge, GAME_RECT)
-		var gate_pos := EntryResolver.resolve(edge, EntryResolver.LAUNCHER_T[edge], GAME_RECT)[&"pos"]
-		var expected := (gate_pos - EntryResolver.LAUNCHER_POS[edge]).normalized()
+		var gate_pos: Vector2 = EntryResolver.resolve(edge, EntryResolver.LAUNCHER_T[edge], GAME_RECT)[&"pos"]
+		var expected: Vector2 = (gate_pos - EntryResolver.LAUNCHER_POS[edge]).normalized()
 		assert_almost_eq(cd.x, expected.x, 1e-4, "channel_dir.x edge %d" % edge)
 		assert_almost_eq(cd.y, expected.y, 1e-4, "channel_dir.y edge %d" % edge)
 		assert_almost_eq(cd.length(), 1.0, 1e-4, "channel_dir normalized edge %d" % edge)
