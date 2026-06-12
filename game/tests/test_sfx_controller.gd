@@ -28,3 +28,10 @@ func test_play_settle_low_pitch() -> void:
 	add_child_autofree(sfx)
 	sfx.play_settle()
 	assert_lt(sfx._players[0].pitch_scale, 1.0, "落定为低音")
+
+func test_pool_wraps_around() -> void:
+	var sfx = SfxControllerScript.new()
+	add_child_autofree(sfx)
+	for i in SfxControllerScript.POOL_SIZE:
+		sfx.play_hit(1)
+	assert_eq(sfx._next, 0, "用满一轮后回到 index 0")
