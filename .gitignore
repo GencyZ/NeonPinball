@@ -19,3 +19,8 @@ obj/
 Thumbs.db
 .DS_Store
 *.log.tmp
+
+# ---- 编辑器临时 / 工具 scratch ----
+*.tscn*.tmp
+/game/test_output.txt
+/.superpowers/
