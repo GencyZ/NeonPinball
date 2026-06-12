@@ -11,6 +11,8 @@ const HALO_EXPAND   := 38.0     # ring max expand beyond peg radius (px)
 const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
+const SfxControllerScript := preload("res://juice/sfx_controller.gd")
+const COMBO_DISPLAY_DUR := 0.6
 
 var _rect: Rect2
 var _pegs: Array = []
@@ -42,6 +44,10 @@ var _peg_halos: Array = []           # [{pos, r0, r1, ttl, max_ttl, color}]
 
 var _juice
 var _last_settle_pos := Vector2.ZERO
+var _combo: int = 0
+var _last_hit_pos := Vector2.ZERO
+var _combo_display_ttl := 0.0
+var _sfx
 
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
@@ -65,6 +71,8 @@ func _ready() -> void:
 	_engine = ScoringEngine.new()
 	_score_ctx = ScoreContext.new()
 	_juice = JuiceControllerScript.new()
+	_sfx = SfxControllerScript.new()
+	add_child(_sfx)
 
 	for tid in [&"peg_bonus", &"bounce_mult", &"big_hit"]:
 		_trigger_runtimes.append(TriggerRuntime.new(GameDB.triggers[tid]))
@@ -332,6 +340,7 @@ func launch(ball: BallState) -> void:
 	RunMan.spend_launch()
 	_sync_hud()
 	_score_ctx.clear_for_launch()
+	_combo = 0
 	_rebuild_wall_segs(false)  # open active gate for new ball
 	_active_balls = [ball]
 	_gate_applied = false
@@ -381,6 +390,10 @@ func _process(delta: float) -> void:
 			while _event_cursor < _events.size():
 				var e: Dictionary = _events[_event_cursor]
 				if e[&"type"] == SimEvent.PEG_HIT:
+					_combo += 1
+					_last_hit_pos = e[&"pos"]
+					_sfx.play_hit(_combo)
+					_combo_display_ttl = COMBO_DISPLAY_DUR
 					var hit_peg_id: int = e[&"peg_id"]
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
 						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
@@ -433,13 +446,13 @@ func _process(delta: float) -> void:
 						var flash_color: Color = hit_type.glow if hit_type != null else Color.from_hsv(randf(), 0.85, 1.0)
 						var halo_col := Color.from_hsv(randf(), 1.0, 1.0)
 						_peg_halos.append({&"pos": hit_peg[&"pos"],
-							&"r0": hit_peg[&"radius"], &"r1": hit_peg[&"radius"] + HALO_EXPAND,
+							&"r0": hit_peg[&"radius"], &"r1": hit_peg[&"radius"] + HALO_EXPAND * (1.0 + minf(float(_combo) * 0.1, 1.0)),
 							&"ttl": HALO_DUR, &"max_ttl": HALO_DUR, &"color": halo_col})
-						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
+						_juice.on_peg_hit_combo(e[&"pos"], flash_color, _combo)
 					else:
 						_score_ctx.pegs_hit += 1
 						var flash_color := Color.from_hsv(randf(), 0.85, 1.0)
-						_juice.on_peg_hit(e[&"pos"], flash_color, _score_ctx.pegs_hit >= 5)
+						_juice.on_peg_hit_combo(e[&"pos"], flash_color, _combo)
 						_flashes.append({&"pos": e[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": flash_color})
 				elif e[&"type"] == SimEvent.SETTLED:
 					_last_settle_pos = e[&"pos"]
@@ -478,6 +491,8 @@ func _process(delta: float) -> void:
 		_peg_halos[i][&"ttl"] -= delta
 		if _peg_halos[i][&"ttl"] <= 0.0:
 			_peg_halos.remove_at(i)
+	if _combo_display_ttl > 0.0:
+		_combo_display_ttl -= delta
 	_juice.update(delta)
 	$Camera2D.offset = _juice.camera_offset()
 	Engine.time_scale = _juice.time_scale()
@@ -487,6 +502,8 @@ func _on_all_settled() -> void:
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
 	_juice.on_settle(_last_settle_pos, score, RunMan.launches_exhausted())
+	_sfx.play_settle()
+	_combo = 0
 	$Hud.add_score(score)
 	RunMan.add_launch_score(score)
 	_has_ball = false; _acc = 0.0
@@ -671,6 +688,13 @@ func _draw() -> void:
 		var c: Color = h[&"color"]
 		draw_arc(h[&"pos"], hr, 0.0, TAU, 32, Color(c.r, c.g, c.b, alpha), 2.5)
 
+	if _combo >= 2 and _combo_display_ttl > 0.0:
+		var f := ThemeDB.fallback_font
+		var frac := _combo_display_ttl / COMBO_DISPLAY_DUR
+		var fsize := 28 + mini(_combo, 20) * 2
+		var col := Color(1.0, 1.0, 1.0, frac)
+		draw_string(f, _last_hit_pos + Vector2(-14, -22), "x%d" % _combo,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
