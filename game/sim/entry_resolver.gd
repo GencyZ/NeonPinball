@@ -10,12 +10,14 @@ const LAUNCHER_T := {
 }
 
 # Launcher canvas positions (fixed; outside _rect) — used by draw layer.
-# LEFT/RIGHT launchers share the same y as their gate centres (absolute y=360)
-# so those channels are perfectly horizontal.
+# LEFT/RIGHT launchers sit diagonally (≈45°) up-out from their gate centres
+# (gate centre absolute y=360); TOP sits straight above. The channel walls run
+# parallel to the launcher→gate direction and the launcher end-cap is built
+# perpendicular to them (see _channel_geometry in board_view.gd).
 const LAUNCHER_POS := {
-	BoardEdge.LEFT:  Vector2(65.0, 360.0),
+	BoardEdge.LEFT:  Vector2(85.0, 310.0),
 	BoardEdge.TOP:   Vector2(405.0, 155.0),
-	BoardEdge.RIGHT: Vector2(745.0, 360.0),
+	BoardEdge.RIGHT: Vector2(725.0, 310.0),
 }
 
 # (edge, t∈[0,1]) → {pos, normal}，t 沿边归一化。

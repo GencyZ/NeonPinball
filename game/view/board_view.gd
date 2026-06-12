@@ -170,11 +170,8 @@ const WALL_REST := 0.82
 const FUNNEL_REST := 0.05
 const CHANNEL_REST := 0.65
 
-const _GATE_LOCAL := {
-	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 95),   Vector2(0, 175)],    # 80px wide, center y=135
-	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 95),  Vector2(540, 175)],  # 80px wide, center y=135
-	EntryResolver.BoardEdge.TOP:   [Vector2(230, 0),   Vector2(310, 0)],    # 80px wide, center x=270
-}
+# 通道半宽（垂直于通道方向）：两条侧墙间距 = 2 * CHANNEL_HW，三个通道一致。
+const CHANNEL_HW := 30.0
 
 func _funnel_segs() -> Array:
 	var o := _rect.position
@@ -183,47 +180,66 @@ func _funnel_segs() -> Array:
 		{&"a": o + Vector2(540, 780), &"b": o + Vector2(300, 900), &"restitution": FUNNEL_REST},
 	]
 
+# 通道几何：两条侧墙平行于 launcher→gate 方向，端盖垂直于侧墙。
+# 返回 launcher 两端点(lp_a/lp_b)与它们沿通道方向打到板壁的交点(g1/g2，即门口两端)。
+func _channel_geometry(edge: int) -> Dictionary:
+	var lp: Vector2 = EntryResolver.LAUNCHER_POS[edge]
+	var dir: Vector2 = EntryResolver.channel_dir(edge, _rect)
+	var perp := Vector2(-dir.y, dir.x)            # 垂直于通道方向
+	var lp_a := lp + perp * CHANNEL_HW
+	var lp_b := lp - perp * CHANNEL_HW
+	return {
+		&"lp_a": lp_a, &"lp_b": lp_b,
+		&"g1": _ray_hit_wall(edge, lp_a, dir),
+		&"g2": _ray_hit_wall(edge, lp_b, dir),
+	}
+
+# 从 from 沿 dir 射线打到该边对应的板壁直线上的交点。
+func _ray_hit_wall(edge: int, from: Vector2, dir: Vector2) -> Vector2:
+	var t := 0.0
+	match edge:
+		EntryResolver.BoardEdge.LEFT:  t = (_rect.position.x - from.x) / dir.x
+		EntryResolver.BoardEdge.RIGHT: t = (_rect.end.x - from.x) / dir.x
+		_:                             t = (_rect.position.y - from.y) / dir.y   # TOP
+	return from + dir * t
+
 func _wall_segs_for_edge(edge: int) -> Array:
-	var o := _rect.position
-	var g: Array = _GATE_LOCAL[edge]
+	var geo := _channel_geometry(edge)
+	var g1: Vector2 = geo[&"g1"]
+	var g2: Vector2 = geo[&"g2"]
 	match edge:
 		EntryResolver.BoardEdge.LEFT:
+			var lo := minf(g1.y, g2.y)
+			var hi := maxf(g1.y, g2.y)
 			return [
-				{&"a": o + Vector2(0, 0),   &"b": o + g[0], &"restitution": WALL_REST},
-				{&"a": o + g[1], &"b": o + Vector2(0, 780), &"restitution": WALL_REST},
+				{&"a": Vector2(_rect.position.x, _rect.position.y), &"b": Vector2(_rect.position.x, lo), &"restitution": WALL_REST},
+				{&"a": Vector2(_rect.position.x, hi), &"b": Vector2(_rect.position.x, _rect.position.y + 780.0), &"restitution": WALL_REST},
 			]
 		EntryResolver.BoardEdge.RIGHT:
+			var lo := minf(g1.y, g2.y)
+			var hi := maxf(g1.y, g2.y)
 			return [
-				{&"a": o + Vector2(540, 0),   &"b": o + g[0], &"restitution": WALL_REST},
-				{&"a": o + g[1], &"b": o + Vector2(540, 780), &"restitution": WALL_REST},
+				{&"a": Vector2(_rect.end.x, _rect.position.y), &"b": Vector2(_rect.end.x, lo), &"restitution": WALL_REST},
+				{&"a": Vector2(_rect.end.x, hi), &"b": Vector2(_rect.end.x, _rect.position.y + 780.0), &"restitution": WALL_REST},
 			]
 		_:  # TOP
+			var lo := minf(g1.x, g2.x)
+			var hi := maxf(g1.x, g2.x)
 			return [
-				{&"a": o + Vector2(0, 0),   &"b": o + g[0], &"restitution": WALL_REST},
-				{&"a": o + g[1], &"b": o + Vector2(540, 0), &"restitution": WALL_REST},
+				{&"a": Vector2(_rect.position.x, _rect.position.y), &"b": Vector2(lo, _rect.position.y), &"restitution": WALL_REST},
+				{&"a": Vector2(hi, _rect.position.y), &"b": Vector2(_rect.end.x, _rect.position.y), &"restitution": WALL_REST},
 			]
 
 func _gate_seg(edge: int) -> Dictionary:
-	var o := _rect.position
-	var g: Array = _GATE_LOCAL[edge]
-	return {&"a": o + g[0], &"b": o + g[1], &"restitution": WALL_REST}
+	var geo := _channel_geometry(edge)
+	return {&"a": geo[&"g1"], &"b": geo[&"g2"], &"restitution": WALL_REST}
 
-# 通道两侧平行墙段：从发射器两端连到门两端，完全平行于通道中心线。
+# 通道两侧平行墙段：launcher 端点 → 板壁交点，完全平行于通道方向。
 func _channel_segs(edge: int) -> Array:
-	var lp: Vector2 = EntryResolver.LAUNCHER_POS[edge]
-	var glocal: Array = _GATE_LOCAL[edge]
-	var gate_a: Vector2 = _rect.position + glocal[0]
-	var gate_b: Vector2 = _rect.position + glocal[1]
-	# 门边缘方向及半宽（即通道半宽）
-	var gate_vec: Vector2 = glocal[1] - glocal[0]
-	var gate_dir: Vector2 = gate_vec.normalized()
-	var hw: float = gate_vec.length() * 0.5
-	# 发射器两端点（沿门边缘方向偏移，使两侧墙平行）
-	var lp_a: Vector2 = lp + gate_dir * hw   # +side → gate_b
-	var lp_b: Vector2 = lp - gate_dir * hw   # -side → gate_a
+	var geo := _channel_geometry(edge)
 	return [
-		{&"a": lp_a, &"b": gate_b, &"restitution": CHANNEL_REST},
-		{&"a": lp_b, &"b": gate_a, &"restitution": CHANNEL_REST},
+		{&"a": geo[&"lp_a"], &"b": geo[&"g1"], &"restitution": CHANNEL_REST},
+		{&"a": geo[&"lp_b"], &"b": geo[&"g2"], &"restitution": CHANNEL_REST},
 	]
 
 func _rebuild_wall_segs(close_active_gate: bool) -> void:
