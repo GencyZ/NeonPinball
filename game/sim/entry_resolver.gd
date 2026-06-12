@@ -9,11 +9,13 @@ const LAUNCHER_T := {
 	BoardEdge.TOP:   0.500,   # local x=270 / 540 → actual x=405, aligns with LAUNCHER_POS
 }
 
-# Launcher canvas positions (fixed; outside _rect) — used by draw layer
+# Launcher canvas positions (fixed; outside _rect) — used by draw layer.
+# LEFT/RIGHT launchers share the same y as their gate centres (absolute y=360)
+# so those channels are perfectly horizontal.
 const LAUNCHER_POS := {
-	BoardEdge.LEFT:  Vector2(55.0, 255.0),
-	BoardEdge.TOP:   Vector2(405.0, 112.0),
-	BoardEdge.RIGHT: Vector2(755.0, 255.0),
+	BoardEdge.LEFT:  Vector2(65.0, 360.0),
+	BoardEdge.TOP:   Vector2(405.0, 155.0),
+	BoardEdge.RIGHT: Vector2(745.0, 360.0),
 }
 
 # (edge, t∈[0,1]) → {pos, normal}，t 沿边归一化。

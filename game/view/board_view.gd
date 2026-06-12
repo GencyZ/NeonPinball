@@ -119,7 +119,7 @@ func _generate_pegs() -> Array:
 
 	while list.size() < count and attempts < count * 30:
 		attempts += 1
-		var r := rng.range_float(6.0, 15.0)
+		var r := rng.range_float(10.0, 20.0)
 		var pos := Vector2(
 			rng.range_float(area.position.x + r, area.end.x - r),
 			rng.range_float(area.position.y + r, area.end.y - r))
@@ -171,9 +171,9 @@ const FUNNEL_REST := 0.05
 const CHANNEL_REST := 0.65
 
 const _GATE_LOCAL := {
-	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 105),   Vector2(0, 165)],    # 60px wide, center y=135
-	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 105),  Vector2(540, 165)],  # 60px wide, center y=135
-	EntryResolver.BoardEdge.TOP:   [Vector2(240, 0),    Vector2(300, 0)],    # 60px wide, center x=270→actual 405
+	EntryResolver.BoardEdge.LEFT:  [Vector2(0, 95),   Vector2(0, 175)],    # 80px wide, center y=135
+	EntryResolver.BoardEdge.RIGHT: [Vector2(540, 95),  Vector2(540, 175)],  # 80px wide, center y=135
+	EntryResolver.BoardEdge.TOP:   [Vector2(230, 0),   Vector2(310, 0)],    # 80px wide, center x=270
 }
 
 func _funnel_segs() -> Array:
