@@ -100,6 +100,8 @@ func test_on_settle_combo_two_floaters_when_combo() -> void:
 	var jc := JuiceControllerScript.new()
 	jc.on_settle_combo(Vector2.ZERO, 100.0, 2.2, false)
 	assert_eq(jc.floaters.items.size(), 2, "+N 与 COMBO 两条飘字")
+	assert_eq(String(jc.floaters.items[0][&"text"]), "+100", "第一条是 +N")
+	assert_eq(String(jc.floaters.items[1][&"text"]), "COMBO x2.2", "第二条是 COMBO 倍率")
 
 func test_on_settle_combo_one_floater_at_x1() -> void:
 	var jc := JuiceControllerScript.new()
