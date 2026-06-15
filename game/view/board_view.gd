@@ -591,9 +591,15 @@ func _on_all_settled() -> void:
 func _start_peg_transition() -> void:
 	_is_transitioning = true
 	_dying_pegs.clear()
+	var survivors: Array = []
 	for peg in _pegs:
-		_dying_pegs.append({&"data": peg.duplicate(), &"ttl": PEG_EXIT_DUR, &"max_ttl": PEG_EXIT_DUR})
-	_pegs.clear()
+		if peg.get(&"is_target", false):
+			survivors.append(peg)   # 目标钉持久，不消失
+		else:
+			_dying_pegs.append({&"data": peg.duplicate(), &"ttl": PEG_EXIT_DUR, &"max_ttl": PEG_EXIT_DUR})
+	_pegs = survivors
+	for i in _pegs.size():
+		_pegs[i][&"id"] = i
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)
 	get_tree().create_timer(PEG_EXIT_DUR).timeout.connect(_on_peg_exit_done)
@@ -605,6 +611,8 @@ func _on_peg_exit_done() -> void:
 	_rebuild_wall_segs(false)
 	_peg_enter_ttls.clear()
 	for peg in _pegs:
+		if peg.get(&"is_target", false):
+			continue   # 目标钉一直在场，不播放出现动画
 		_peg_enter_ttls[peg[&"id"]] = PEG_ENTER_DUR
 	get_tree().create_timer(PEG_ENTER_DUR).timeout.connect(_on_peg_enter_done)
 
