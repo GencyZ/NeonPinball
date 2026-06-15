@@ -8,6 +8,7 @@ var _label_ante: Label
 var _label_quota: Label
 var _label_money: Label
 var _label_launches: Label
+var _label_targets: Label
 
 # ---- Shop panel ----
 var _shop_panel: PanelContainer
@@ -36,6 +37,8 @@ func _ready() -> void:
 	_label_quota   = _make_label(Vector2(490, 44), 18, Color(1.0, 0.5, 0.5))
 	_label_money   = _make_label(Vector2(490, 68), 18, Color(0.4, 1.0, 0.6))
 	_label_launches = _make_label(Vector2(490, 92), 18, Color(0.8, 0.8, 1.0))
+	_label_targets = _make_label(Vector2(490, 116), 18, Color(1.0, 0.85, 0.2))
+	_label_targets.text = ""
 
 	# Initialize text
 	_label_total.text    = "Score: 0"
@@ -163,3 +166,9 @@ func show_end_buttons() -> void:
 
 func hide_end_buttons() -> void:
 	_end_panel.visible = false
+
+func set_target_count(cleared: int, total: int) -> void:
+	if total <= 0:
+		_label_targets.text = ""
+	else:
+		_label_targets.text = "目标 %d/%d" % [cleared, total]

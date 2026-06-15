@@ -383,6 +383,11 @@ func _sync_hud() -> void:
 		RunMan.state[&"launches_left"],
 		RunMan.state[&"round_score"],
 	)
+	var total: int = _target_total()
+	$Hud.set_target_count(total - _target_pegs.size(), total)
+
+func _target_total() -> int:
+	return RoundGoalScript.target_count_for(int(RunMan.state[&"ante"]))
 
 func launch(ball: BallState) -> void:
 	if _has_ball:
@@ -746,6 +751,11 @@ func _draw() -> void:
 		if radius < 0.3:
 			continue
 		draw_circle(peg[&"pos"], radius, col)
+		if peg.get(&"is_target", false):
+			draw_arc(peg[&"pos"], radius + 3.0, 0.0, TAU, 24, Color(1.0, 0.85, 0.2), 2.0)
+			var f := ThemeDB.fallback_font
+			draw_string(f, peg[&"pos"] + Vector2(-5, 5), str(int(peg[&"hp"])),
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1))
 
 	# Halos: expanding ring on peg hit
 	for h in _peg_halos:
@@ -762,6 +772,11 @@ func _draw() -> void:
 		var col := Color(1.0, 1.0, 1.0, frac)
 		draw_string(f, _last_hit_pos + Vector2(-14, -22), "x%d" % _combo,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)   # 偏移：命中点左上方
+	if _all_clear_ttl > 0.0:
+		var f2 := ThemeDB.fallback_font
+		var a := _all_clear_ttl / ALL_CLEAR_DUR
+		draw_string(f2, _rect.position + Vector2(160, 400), "ALL CLEAR!",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(1.0, 0.9, 0.3, a))
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
