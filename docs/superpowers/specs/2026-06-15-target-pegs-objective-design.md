@@ -79,7 +79,7 @@ static func target_hp_for(ante: int) -> int:
 
 - **新轮生成目标钉**（在 `_ready()` 首轮、`leave_shop()` 新轮）：用确定性 RNG 选 `RoundGoal.target_count_for(ante)` 个位置，建目标钉（标 `is_target=true`、`hp=RoundGoal.target_hp_for(ante)`、金色），存入持久集合 `_target_pegs`。
 - **持久**：`_on_peg_exit_done()` 重生填充钉时，把未清的目标钉并入棋盘（不参与填充钉的消失/重生动画）。即 `_pegs = 填充钉 + 存活目标钉`。
-- **命中**：PEG_HIT 命中目标钉 → `hp -= 1` + 命中确认（闪光/音）；`hp <= 0` 时清除该目标钉、从 `_target_pegs` 移除、刷新 HUD 计数；并计分（目标钉也给 base 分）。
+- **命中**：直接球命中、**炸弹、连锁**命中目标钉均 → `hp -= 1` + 命中确认（闪光/音）；`hp <= 0` 时清除该目标钉、从 `_target_pegs` 移除、刷新 HUD 计数；并计分（目标钉也给 base 分）。（用户 2026-06-15 定：cascade 也伤目标，统一走 `_damage_target` 助手。）
 - **全清检测 + 高潮（不提前过关）**：清除后若 `_target_pegs` 为空 → `RunMan.state[&"targets_done"] = true`，并**立即**播 ALL CLEAR 高潮（`_play_all_clear()`：慢动作 + "ALL CLEAR!" 飘字 + 庆祝）。**回合不结束**——继续发完剩余球（可继续刷分/combo）。
 - **`_on_all_settled` 不为 targets_done 单独改动**：仍是现有流程——`launches_exhausted()` → `RunMan.advance()`（赢条件已含 `targets_done`，见 §2）+ `_handle_phase_transition()`；否则 `_start_peg_transition()`。即回合照常发完 5 球，结束时凭 `targets_done 或 够配额` 判胜负。
 - 清光奖励金钱在 `_payout()` 按 `targets_done` 发放（回合结束 ANTE_CLEAR 时）。

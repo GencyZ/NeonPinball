@@ -10,9 +10,9 @@
 
 ---
 
-## ⚠️ 关键决策（执行前请确认）
+## 关键决策（已定）
 
-**D1 — 目标钉只被"直接球命中"扣 HP；炸弹/连锁/一次性逻辑跳过目标钉。** 理由：HP 逻辑集中在 PEG_HIT 一处，避开"erase vs HP"冲突，且目标钉需主动命中（更像技巧目标）。备选（炸弹/连锁也能伤目标）记 Backlog。**若你要改成 cascade 也能伤目标，Task 3 的跳过逻辑需调整。**
+**D1 — 目标钉可被直接命中、炸弹、连锁伤害（每次 −1 HP，扣完才消）。**（用户 2026-06-15 定）统一走 `_damage_target(peg) -> bool` 助手：扣 1 HP + 计分，hp≤0 时从 `_target_pegs` 移除并检测全清，返回"是否被摧毁"。三个调用方各自安全地处理 `_pegs` 移除（炸弹/连锁"先收集后删除"，避免迭代中改数组）。
 
 ---
 
@@ -366,21 +366,29 @@ func _compose_pegs() -> Array:
 ```
 （把原 match 块整体多缩进一级，使其位于 else 之下。）
 
-- [ ] **Step 6: 目标钉命中处理 + ALL CLEAR** — 在 `_score_peg(peg)` 函数定义**之后**插入：
+- [ ] **Step 6: HP 助手 + 直接命中 + ALL CLEAR** — 在 `_score_peg(peg)` 函数定义**之后**插入：
 ```gdscript
-func _hit_target_peg(peg: Dictionary) -> void:
+# 给目标钉扣 1 HP + 计分；hp≤0 时从 _target_pegs 移除并检测全清。
+# 返回是否被摧毁（调用方负责从 _pegs 移除 + 重建 sim）。不触碰 _pegs/sim。
+func _damage_target(peg: Dictionary) -> bool:
 	peg[&"hp"] = int(peg[&"hp"]) - 1
 	_score_peg(peg)
-	if int(peg[&"hp"]) <= 0:
+	var destroyed := int(peg[&"hp"]) <= 0
+	if destroyed:
 		_target_pegs.erase(peg)
-		_pegs.erase(peg)
-		_sim = _make_sim(_pegs)
-		_rebuild_wall_segs(_gate_applied)
-		_events.resize(_event_cursor + 1)
 		if _target_pegs.is_empty():
 			RunMan.state[&"targets_done"] = true
 			_play_all_clear()
 	_sync_hud()
+	return destroyed
+
+# 直接球命中目标钉。
+func _hit_target_peg(peg: Dictionary) -> void:
+	if _damage_target(peg):
+		_pegs.erase(peg)
+		_sim = _make_sim(_pegs)
+		_rebuild_wall_segs(_gate_applied)
+		_events.resize(_event_cursor + 1)
 
 func _play_all_clear() -> void:
 	_all_clear_ttl = ALL_CLEAR_DUR
@@ -389,33 +397,55 @@ func _play_all_clear() -> void:
 	_juice.shake.add(0.5)
 ```
 
-- [ ] **Step 7: 炸弹/连锁跳过目标钉（D1）** — 在 `_trigger_bomb` 与 `_trigger_chain` 的遍历循环体最前面各加一句跳过。
-`_trigger_chain`：找到循环体开头：
+- [ ] **Step 7: 炸弹/连锁也伤目标钉（D1，先收集后删除）**
+`_trigger_chain`：把循环体：
 ```gdscript
 	for peg in _pegs:
 		if peg[&"id"] == chain_peg[&"id"] or peg.get(&"hit", false):
 			continue
+		if (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"]) <= CHAIN_RADIUS:
+			_score_peg(peg)
 ```
-改为：
+改为（目标钉走 _damage_target，被摧毁的收集后统一删除）：
 ```gdscript
+	var chain_removed: Array = []
 	for peg in _pegs:
-		if peg.get(&"is_target", false):
-			continue
 		if peg[&"id"] == chain_peg[&"id"] or peg.get(&"hit", false):
 			continue
+		if (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"]) <= CHAIN_RADIUS:
+			if peg.get(&"is_target", false):
+				if _damage_target(peg):
+					chain_removed.append(peg)
+			else:
+				_score_peg(peg)
+	for peg in chain_removed:
+		_pegs.erase(peg)
+	if not chain_removed.is_empty():
+		_sim = _make_sim(_pegs)
+		_rebuild_wall_segs(_gate_applied)
+		_events.resize(_event_cursor + 1)
 ```
-`_trigger_bomb`：找到循环体：
+> 注：上面假设 `_trigger_chain` 现有循环对半径内的钉调用 `_score_peg(peg)`。实施时先读真实函数体，按其实际结构插入"目标钉→_damage_target、收集 chain_removed、循环后删除+重建 sim"，保持其余行为不变。
+
+`_trigger_bomb`：把循环体：
 ```gdscript
 	for peg in _pegs:
 		if (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"]) <= BOMB_RADIUS:
+			_score_peg(peg)
+			to_remove.append(peg)
 ```
-改为：
+改为（目标钉扣 HP，只有被摧毁才进 to_remove）：
 ```gdscript
 	for peg in _pegs:
-		if peg.get(&"is_target", false):
-			continue
 		if (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"]) <= BOMB_RADIUS:
+			if peg.get(&"is_target", false):
+				if _damage_target(peg):
+					to_remove.append(peg)
+			else:
+				_score_peg(peg)
+				to_remove.append(peg)
 ```
+（`to_remove` 之后的 `_pegs.erase` + `_make_sim` + `_events.resize` 套路不变。未被摧毁的目标钉留在场上，HP 已 −1。）
 
 - [ ] **Step 8: ALL CLEAR 计时递减** — 在 `_process` 里 `if _combo_display_ttl > 0.0:` 那块之后加：
 ```gdscript
@@ -510,7 +540,7 @@ git -C D:/NeonPinball/game commit -m "feat: target peg visuals (gold + HP) + HUD
 
 ## 自检清单
 
-- [ ] **Spec 覆盖**：目标钉数/HP 曲线(T1) ✓；双路赢条件 targets_done or quota(T2) ✓；新轮重置 + 清光奖励 +5(T2) ✓；持久目标钉跨发(T3 _compose_pegs，_on_peg_exit_done 不重生目标) ✓；直接命中扣 HP、扣完移除、全清→targets_done+ALL CLEAR(T3) ✓；cascade 跳过目标(D1, T3 Step7) ✓；不提前过关（_on_all_settled 未改 targets 分支）✓；金色+HP 显示 + HUD 计数(T4) ✓；零侵入 sim ✓
+- [ ] **Spec 覆盖**：目标钉数/HP 曲线(T1) ✓；双路赢条件 targets_done or quota(T2) ✓；新轮重置 + 清光奖励 +5(T2) ✓；持久目标钉跨发(T3 _compose_pegs，_on_peg_exit_done 不重生目标) ✓；直接命中/炸弹/连锁均扣 HP、扣完移除、全清→targets_done+ALL CLEAR(T3 _damage_target, D1) ✓；不提前过关（_on_all_settled 未改 targets 分支）✓；金色+HP 显示 + HUD 计数(T4) ✓；零侵入 sim ✓
 - [ ] **占位符扫描**：每步完整代码与确切命令 ✓
 - [ ] **类型/签名一致性**：
   - `RoundGoal.target_count_for/target_hp_for(int)->int` —— T1 定义、T1/T2 测试、T3/T4 调用一致 ✓
@@ -528,4 +558,4 @@ git -C D:/NeonPinball/game commit -m "feat: target peg visuals (gold + HP) + HUD
 - 目标钉移除沿用现有一次性钉的 `erase + _make_sim + _events.resize` 套路；`_compose_pegs` 重排 id 保证 `id==下标` 不变量。
 - `_target_total()` 用公式值作本轮总数（目标钉一旦生成数量固定）；cleared = 总数 − 存活数。
 - 数值（数量/HP/奖励 +5/ALL CLEAR 时长）见 `docs/superpowers/balance-tunables.md`，试玩后调。
-- D1（炸弹/连锁不伤目标）若改为"可伤"，需移除 T3 Step7 的跳过并在 _trigger_bomb/_trigger_chain 里走 HP 逻辑而非 erase——属另一种实现，执行前定。
+- D1 已定为"炸弹/连锁也伤目标"：三个调用方统一走 `_damage_target`；炸弹/连锁"先收集后删除"避免迭代中改数组；未摧毁的目标钉留场、HP −1。
