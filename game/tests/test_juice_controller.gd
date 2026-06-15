@@ -23,32 +23,33 @@ func test_big_emits_more_particles() -> void:
 
 func test_settle_adds_floater() -> void:
 	var jc := JuiceControllerScript.new()
-	jc.on_settle(Vector2(1, 2), 250.0, false)
+	jc.on_settle_combo(Vector2(1, 2), 250.0, 1.0, false)
 	assert_eq(jc.floaters.items.size(), 1)
 	assert_eq(String(jc.floaters.items[0][&"text"]), "+250")
 
 func test_final_launch_with_score_triggers_slowmo() -> void:
 	var jc := JuiceControllerScript.new()
-	jc.on_settle(Vector2.ZERO, 100.0, true)
+	jc.on_settle_combo(Vector2.ZERO, 100.0, 1.0, true)
 	jc.update(0.016)
 	assert_lt(jc.time_scale(), 1.0)
 
 func test_nonfinal_settle_no_slowmo() -> void:
 	var jc := JuiceControllerScript.new()
-	jc.on_settle(Vector2.ZERO, 100.0, false)
+	jc.on_settle_combo(Vector2.ZERO, 100.0, 1.0, false)
 	jc.update(0.016)
 	assert_almost_eq(jc.time_scale(), 1.0, 0.0001)
 
 func test_zero_score_final_no_slowmo() -> void:
 	var jc := JuiceControllerScript.new()
-	jc.on_settle(Vector2.ZERO, 0.0, true)
+	jc.on_settle_combo(Vector2.ZERO, 0.0, 1.0, true)
 	jc.update(0.016)
 	assert_almost_eq(jc.time_scale(), 1.0, 0.0001)
+	assert_eq(jc.floaters.items.size(), 0, "0 分不弹飘字")
 
 func test_update_advances_systems() -> void:
 	var jc := JuiceControllerScript.new()
 	jc.on_peg_hit(Vector2.ZERO, Color.RED, false)
-	jc.on_settle(Vector2(0, 100), 10.0, false)
+	jc.on_settle_combo(Vector2(0, 100), 10.0, 1.0, false)
 	var px0: float = jc.particles.particles[0][&"pos"].x
 	var fy0: float = jc.floaters.items[0][&"pos"].y
 	jc.update(0.1)

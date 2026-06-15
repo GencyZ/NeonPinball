@@ -39,16 +39,10 @@ func on_peg_hit_combo(pos: Vector2, color: Color, combo: int) -> void:
 	particles.emit(pos, color, 6 + mini(combo, 12))   # 6→18 粒子随 combo
 	#slowmo.request(0.05, hitstop_duration_for_combo(combo))   # 逐击顿帧（已禁用，见上方注释）
 
-# 旧落定反馈：board_view 已改用 on_settle_combo（保留兼容，暂不删）。
-func on_settle(pos: Vector2, score: float, is_final_launch: bool) -> void:
-	floaters.add(pos, "+%d" % int(score))
-	shake.add(0.2)
-	if is_final_launch and score > 0.0:
-		slowmo.request(0.35, 0.25)
-
 # 落定揭示：+N 飘字 + （combo>1 时）COMBO xN 飘字 + 越爆震越强。
 func on_settle_combo(pos: Vector2, score: float, combo_x: float, is_final_launch: bool) -> void:
-	floaters.add(pos, "+%d" % int(score))
+	if score > 0.0:
+		floaters.add(pos, "+%d" % int(score))
 	if combo_x > 1.0:
 		floaters.add(pos + Vector2(0, -28), "COMBO x%.1f" % combo_x)   # -28: 命中分上方
 	shake.add(minf(0.2 + (combo_x - 1.0) * 0.12, 0.6))   # x1→0.2，斜率 0.12，x≈4.3 封顶 0.6
