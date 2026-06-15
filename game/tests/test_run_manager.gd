@@ -3,10 +3,10 @@ extends GutTest
 const RunManagerScript := preload("res://run/run_manager.gd")
 
 func test_quota_of_ante1_round0() -> void:
-    assert_almost_eq(RunManagerScript.quota_of(1, 0), 50.0, 1.0)
+    assert_almost_eq(RunManagerScript.quota_of(1, 0), 90.0, 1.0)
 
 func test_quota_of_ante1_round2() -> void:
-    assert_almost_eq(RunManagerScript.quota_of(1, 2), 90.0, 1.0)
+    assert_almost_eq(RunManagerScript.quota_of(1, 2), 162.0, 1.0)
 
 func test_quota_grows_with_ante() -> void:
     assert_true(RunManagerScript.quota_of(2, 0) > RunManagerScript.quota_of(1, 0))

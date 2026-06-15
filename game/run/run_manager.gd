@@ -46,7 +46,7 @@ func _ready() -> void:
            "state field and _make_default_state() diverged — update both")
 
 static func quota_of(ante: int, round_in_ante: int) -> float:
-    var ante_base := 50.0 * pow(1.6, ante - 1)
+    var ante_base := 90.0 * pow(1.6, ante - 1)   # 首版：配合 combo ×倍率上调，待试玩微调
     var idx := clampi(round_in_ante, 0, 2)
     var mul: float
     if idx == 0:
