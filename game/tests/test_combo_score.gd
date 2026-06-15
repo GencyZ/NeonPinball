@@ -22,6 +22,11 @@ func test_capped_at_5() -> void:
 	for n in range(0, 120):
 		assert_true(ComboScoreScript.xmult_for(n) <= 5.0, "不超过 5 @%d" % n)
 
+func test_cap_boundary() -> void:
+	# 34 钉首次封顶（(5-1)/0.12=33.3），33 钉仍未封顶
+	assert_lt(ComboScoreScript.xmult_for(33), 5.0, "33 钉未封顶")
+	assert_almost_eq(ComboScoreScript.xmult_for(34), 5.0, 1e-4, "34 钉首次封顶")
+
 func test_pipeline_combo_multiplies() -> void:
 	# base 10 × combo(10)=2.2 → 22
 	var eng := ScoringEngine.new()
