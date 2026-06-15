@@ -182,3 +182,18 @@ func test_payout_targets_bonus() -> void:
     # base_reward(3+1=4) + launch_bonus(0) + interest(0) + targets_bonus(5) = 9
     assert_eq(mgr.state[&"money"], 9, "clear bonus +5")
     mgr.free()
+
+func test_targets_done_wins_on_boss_round() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()   # → ROUND (ante1, round_in_ante 0)
+    for _r in 2:
+        mgr.state[&"round_score"] = 9999.0
+        mgr.advance()   # ROUND → ANTE_CLEAR
+        mgr.advance()   # ANTE_CLEAR → SHOP (round_in_ante +1)
+        mgr.advance()   # SHOP → _start_round
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.BOSS_ROUND, "round_in_ante==2 应为 Boss 轮")
+    mgr.state[&"round_score"] = 0.0
+    mgr.state[&"targets_done"] = true
+    mgr.advance()
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.ANTE_CLEAR, "Boss 轮清光也过关")
+    mgr.free()
