@@ -95,3 +95,20 @@ func test_combo_hit_emits_particles() -> void:
 	var jc := JuiceControllerScript.new()
 	jc.on_peg_hit_combo(Vector2.ZERO, Color.RED, 5)
 	assert_gt(jc.particles.particles.size(), 0, "逐击迸射粒子")
+
+func test_on_settle_combo_two_floaters_when_combo() -> void:
+	var jc := JuiceControllerScript.new()
+	jc.on_settle_combo(Vector2.ZERO, 100.0, 2.2, false)
+	assert_eq(jc.floaters.items.size(), 2, "+N 与 COMBO 两条飘字")
+
+func test_on_settle_combo_one_floater_at_x1() -> void:
+	var jc := JuiceControllerScript.new()
+	jc.on_settle_combo(Vector2.ZERO, 100.0, 1.0, false)
+	assert_eq(jc.floaters.items.size(), 1, "×1 时只有 +N")
+
+func test_on_settle_combo_higher_x_more_shake() -> void:
+	var a := JuiceControllerScript.new()
+	var b := JuiceControllerScript.new()
+	a.on_settle_combo(Vector2.ZERO, 100.0, 1.0, false)
+	b.on_settle_combo(Vector2.ZERO, 100.0, 3.0, false)
+	assert_gt(b.shake.trauma, a.shake.trauma, "越爆震越强")

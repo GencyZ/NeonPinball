@@ -45,6 +45,15 @@ func on_settle(pos: Vector2, score: float, is_final_launch: bool) -> void:
 	if is_final_launch and score > 0.0:
 		slowmo.request(0.35, 0.25)
 
+# 落定揭示：+N 飘字 + （combo>1 时）COMBO ×N 飘字 + 越爆震越强。
+func on_settle_combo(pos: Vector2, score: float, combo_x: float, is_final_launch: bool) -> void:
+	floaters.add(pos, "+%d" % int(score))
+	if combo_x > 1.0:
+		floaters.add(pos + Vector2(0, -28), "COMBO x%.1f" % combo_x)
+	shake.add(minf(0.2 + (combo_x - 1.0) * 0.12, 0.6))
+	if is_final_launch and score > 0.0:
+		slowmo.request(0.35, 0.25)
+
 func update(delta: float) -> void:
 	_cam_offset = shake.update(delta)
 	_time_scale = slowmo.update(delta)
