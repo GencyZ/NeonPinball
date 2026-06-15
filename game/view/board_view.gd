@@ -12,6 +12,8 @@ const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
 const ComboScoreScript := preload("res://scoring/combo_score.gd")
+const RoundGoalScript := preload("res://run/round_goal.gd")
+const ALL_CLEAR_DUR := 0.5
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const COMBO_DISPLAY_DUR := 0.6
 
@@ -50,6 +52,9 @@ var _last_hit_pos := Vector2.ZERO
 var _combo_display_ttl := 0.0
 var _sfx
 
+var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
+var _all_clear_ttl := 0.0           # ALL CLEAR 飘字计时
+
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
 var _gate_applied := false
@@ -66,7 +71,8 @@ var active_gate_def: GateDef:
 
 func _ready() -> void:
 	_rect = Rect2(135, 225, 540, 900)
-	_pegs = _generate_pegs()
+	_target_pegs = _generate_target_pegs()
+	_pegs = _compose_pegs()
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)  # active gate open, others closed
 	_engine = ScoringEngine.new()
@@ -101,7 +107,7 @@ func _ready() -> void:
 	$Hud.shop_slot_pressed.connect(buy_shop_slot)
 	$Hud.shop_continue_pressed.connect(leave_shop)
 
-func _generate_pegs() -> Array:
+func _generate_pegs(avoid_pos: Array = []) -> Array:
 	var ante: int = RunMan.state[&"ante"]
 	var ria: int  = RunMan.state[&"round_in_ante"]
 	var depth := (ante - 1) * 3 + ria   # 0 (ante1 r1) … 23 (ante8 boss)
@@ -137,6 +143,10 @@ func _generate_pegs() -> Array:
 		for j in placed_pos.size():
 			if pos.distance_to(placed_pos[j]) < r + placed_rad[j] + 18.0:
 				too_close = true; break
+		if not too_close:
+			for ap in avoid_pos:
+				if pos.distance_to(ap) < r + 24.0 + 18.0:
+					too_close = true; break
 		if too_close:
 			continue
 
@@ -153,6 +163,51 @@ func _generate_pegs() -> Array:
 		placed_rad.append(r)
 		id += 1
 	return list
+
+# 每轮生成一次的持久目标钉（金色、带 HP）。确定性 RNG。
+func _generate_target_pegs() -> Array:
+	var ante: int = RunMan.state[&"ante"]
+	var k := RoundGoalScript.target_count_for(ante)
+	var hp := RoundGoalScript.target_hp_for(ante)
+	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]),
+		ante * 131 + int(RunMan.state[&"round_in_ante"]) * 17 + 1009)
+	var margin := 44.0
+	var area := Rect2(
+		_rect.position.x + margin,
+		_rect.position.y + margin + 80.0,
+		_rect.size.x - margin * 2.0,
+		780.0 - margin * 2.0 - 80.0)
+	var list: Array = []
+	var placed: Array = []
+	var attempts := 0
+	while list.size() < k and attempts < k * 40:
+		attempts += 1
+		var r := 16.0
+		var pos := Vector2(
+			rng.range_float(area.position.x + r, area.end.x - r),
+			rng.range_float(area.position.y + r, area.end.y - r))
+		var too_close := false
+		for p in placed:
+			if pos.distance_to(p) < 90.0:
+				too_close = true; break
+		if too_close:
+			continue
+		list.append({&"pos": pos, &"radius": r, &"base_score": 10.0,
+					 &"type": GameDB.peg_types[&"normal"], &"frozen": false, &"poisoned": false,
+					 &"is_target": true, &"hp": hp, &"hp_max": hp})
+		placed.append(pos)
+	return list
+
+# 合成本发棋盘：填充钉（避开目标位）+ 存活目标钉，按下标重排 id。
+func _compose_pegs() -> Array:
+	var avoid: Array = []
+	for t in _target_pegs:
+		avoid.append(t[&"pos"])
+	var combined: Array = _generate_pegs(avoid)
+	combined.append_array(_target_pegs)
+	for i in combined.size():
+		combined[i][&"id"] = i
+	return combined
 
 func _build_type_pool(depth: int) -> Array:
 	var pool: Array = []
@@ -402,49 +457,52 @@ func _process(delta: float) -> void:
 						var hit_peg: Dictionary = _pegs[hit_peg_id]
 						var hit_type: PegType = hit_peg.get(&"type")
 						var behavior := hit_type.behavior if hit_type != null else PegType.Behavior.NORMAL
-						match behavior:
-							PegType.Behavior.NORMAL:
-								_score_peg(hit_peg)
-							PegType.Behavior.MULT:
-								_score_ctx.pegs_hit += 1
-								_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
-							PegType.Behavior.CHAIN:
-								_score_peg(hit_peg)
-								_trigger_chain(hit_peg)
-							PegType.Behavior.BOMB:
-								_trigger_bomb(hit_peg)
-							PegType.Behavior.FREEZE:
-								_score_peg(hit_peg)
-								_trigger_freeze(hit_peg)
-							PegType.Behavior.JACKPOT:
-								_score_peg(hit_peg)
-								var jackpot_mult := randf_range(1.0, 10.0)
-								_score_ctx.add(ScoreContext.KIND_ADD_MULT, jackpot_mult, &"jackpot")
-								_flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4, &"color": Color(1.0, 0.9, 0.0)})
-								if hit_type.one_shot:
-									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
-									_rebuild_wall_segs(_gate_applied)
-									_events.resize(_event_cursor + 1)
-							PegType.Behavior.LIFE:
-								RunMan.state[&"launches_left"] += 1
-								_sync_hud()
-								_score_peg(hit_peg)
-								if hit_type.one_shot:
-									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
-									_rebuild_wall_segs(_gate_applied)
-									_events.resize(_event_cursor + 1)
-							PegType.Behavior.POISON:
-								_score_peg(hit_peg)
-								_trigger_poison(hit_peg)
-								if hit_type.one_shot:
-									_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
-									_rebuild_wall_segs(_gate_applied)
-									_events.resize(_event_cursor + 1)
-							PegType.Behavior.PORTAL:
-								_trigger_portal(hit_peg, e[&"pos"])
-							PegType.Behavior.MAGNET:
-								_score_peg(hit_peg)
-								_trigger_magnet(hit_peg)
+						if hit_peg.get(&"is_target", false):
+							_hit_target_peg(hit_peg)
+						else:
+							match behavior:
+								PegType.Behavior.NORMAL:
+									_score_peg(hit_peg)
+								PegType.Behavior.MULT:
+									_score_ctx.pegs_hit += 1
+									_score_ctx.add(ScoreContext.KIND_ADD_MULT, hit_type.mult_add, &"mult_peg")
+								PegType.Behavior.CHAIN:
+									_score_peg(hit_peg)
+									_trigger_chain(hit_peg)
+								PegType.Behavior.BOMB:
+									_trigger_bomb(hit_peg)
+								PegType.Behavior.FREEZE:
+									_score_peg(hit_peg)
+									_trigger_freeze(hit_peg)
+								PegType.Behavior.JACKPOT:
+									_score_peg(hit_peg)
+									var jackpot_mult := randf_range(1.0, 10.0)
+									_score_ctx.add(ScoreContext.KIND_ADD_MULT, jackpot_mult, &"jackpot")
+									_flashes.append({&"pos": hit_peg[&"pos"], &"ttl": 0.4, &"max_ttl": 0.4, &"color": Color(1.0, 0.9, 0.0)})
+									if hit_type.one_shot:
+										_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+										_rebuild_wall_segs(_gate_applied)
+										_events.resize(_event_cursor + 1)
+								PegType.Behavior.LIFE:
+									RunMan.state[&"launches_left"] += 1
+									_sync_hud()
+									_score_peg(hit_peg)
+									if hit_type.one_shot:
+										_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+										_rebuild_wall_segs(_gate_applied)
+										_events.resize(_event_cursor + 1)
+								PegType.Behavior.POISON:
+									_score_peg(hit_peg)
+									_trigger_poison(hit_peg)
+									if hit_type.one_shot:
+										_pegs.erase(hit_peg); _sim = _make_sim(_pegs)
+										_rebuild_wall_segs(_gate_applied)
+										_events.resize(_event_cursor + 1)
+								PegType.Behavior.PORTAL:
+									_trigger_portal(hit_peg, e[&"pos"])
+								PegType.Behavior.MAGNET:
+									_score_peg(hit_peg)
+									_trigger_magnet(hit_peg)
 						var flash_color: Color = hit_type.glow if hit_type != null else Color.from_hsv(randf(), 0.85, 1.0)
 						var halo_col := Color.from_hsv(randf(), 1.0, 1.0)
 						_peg_halos.append({&"pos": hit_peg[&"pos"],
@@ -495,6 +553,8 @@ func _process(delta: float) -> void:
 			_peg_halos.remove_at(i)
 	if _combo_display_ttl > 0.0:
 		_combo_display_ttl -= delta
+	if _all_clear_ttl > 0.0:
+		_all_clear_ttl -= delta
 	_juice.update(delta)
 	$Camera2D.offset = _juice.camera_offset()
 	Engine.time_scale = _juice.time_scale()
@@ -535,7 +595,7 @@ func _start_peg_transition() -> void:
 
 func _on_peg_exit_done() -> void:
 	_dying_pegs.clear()
-	_pegs = _generate_pegs()
+	_pegs = _compose_pegs()
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)
 	_peg_enter_ttls.clear()
@@ -611,7 +671,8 @@ func leave_shop() -> void:
 	$Hud.hide_shop()
 	RunMan.advance()   # SHOP → ROUND (calls _start_round inside)
 	# Rebuild board for the new round
-	_pegs = _generate_pegs()
+	_target_pegs = _generate_target_pegs()
+	_pegs = _compose_pegs()
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(_gate_applied)
 	_apply_boss_mod()
@@ -745,19 +806,62 @@ func _score_peg(peg: Dictionary) -> void:
 	var col: Color = pt.glow if pt != null else Color.WHITE
 	_flashes.append({&"pos": peg[&"pos"], &"ttl": 0.15, &"max_ttl": 0.15, &"color": col})
 
+# 给目标钉扣 1 HP + 计分；hp≤0 时从 _target_pegs 移除并检测全清。
+# 返回是否被摧毁（调用方负责从 _pegs 移除 + 重建 sim）。不触碰 _pegs/sim。
+func _damage_target(peg: Dictionary) -> bool:
+	peg[&"hp"] = int(peg[&"hp"]) - 1
+	_score_peg(peg)
+	var destroyed := int(peg[&"hp"]) <= 0
+	if destroyed:
+		_target_pegs.erase(peg)
+		if _target_pegs.is_empty():
+			RunMan.state[&"targets_done"] = true
+			_play_all_clear()
+	_sync_hud()
+	return destroyed
+
+# 直接球命中目标钉。
+func _hit_target_peg(peg: Dictionary) -> void:
+	if _damage_target(peg):
+		_pegs.erase(peg)
+		_sim = _make_sim(_pegs)
+		_rebuild_wall_segs(_gate_applied)
+		_events.resize(_event_cursor + 1)
+
+func _play_all_clear() -> void:
+	_all_clear_ttl = ALL_CLEAR_DUR
+	_juice.slowmo.request(0.3, 0.4)
+	_juice.floaters.add(_last_hit_pos + Vector2(0, -40), "ALL CLEAR!")
+	_juice.shake.add(0.5)
+
 func _trigger_chain(chain_peg: Dictionary) -> void:
+	var chain_removed: Array = []
 	for peg in _pegs:
 		if peg[&"id"] == chain_peg[&"id"] or peg.get(&"hit", false):
 			continue
 		if (peg[&"pos"] as Vector2).distance_to(chain_peg[&"pos"]) <= CHAIN_RADIUS:
-			_score_peg(peg)
+			if peg.get(&"is_target", false):
+				if _damage_target(peg):
+					chain_removed.append(peg)
+			else:
+				_score_peg(peg)
+	for peg in chain_removed:
+		_pegs.erase(peg)
+	if not chain_removed.is_empty():
+		_sim = _make_sim(_pegs)
+		_rebuild_wall_segs(_gate_applied)
+		_events.resize(_event_cursor + 1)
 
 func _trigger_bomb(bomb_peg: Dictionary) -> void:
 	var to_remove: Array = []
 	for peg in _pegs:
 		if (peg[&"pos"] as Vector2).distance_to(bomb_peg[&"pos"]) <= BOMB_RADIUS:
-			_score_peg(peg)
-			to_remove.append(peg)
+			if peg.get(&"is_target", false):
+				if _damage_target(peg):
+					to_remove.append(peg)
+			else:
+				_score_peg(peg)
+				to_remove.append(peg)
 	for peg in to_remove:
 		_pegs.erase(peg)
 	_sim = _make_sim(_pegs)
