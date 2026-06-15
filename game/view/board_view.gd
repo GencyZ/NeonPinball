@@ -53,6 +53,7 @@ var _combo_display_ttl := 0.0
 var _sfx
 
 var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
+var _target_total_placed: int = 0   # 本轮实际生成的目标钉数（用于 HUD 计数）
 var _all_clear_ttl := 0.0           # ALL CLEAR 大字计时（由 _draw() 读取绘制；见目标钉可视化任务）
 
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
@@ -197,6 +198,7 @@ func _generate_target_pegs() -> Array:
 					 &"type": GameDB.peg_types[&"normal"], &"frozen": false, &"poisoned": false,
 					 &"is_target": true, &"hp": hp, &"hp_max": hp})
 		placed.append(pos)
+	_target_total_placed = list.size()
 	return list
 
 # 合成本发棋盘：填充钉（避开目标位）+ 存活目标钉，按下标重排 id。
@@ -383,11 +385,8 @@ func _sync_hud() -> void:
 		RunMan.state[&"launches_left"],
 		RunMan.state[&"round_score"],
 	)
-	var total: int = _target_total()
-	$Hud.set_target_count(total - _target_pegs.size(), total)
+	$Hud.set_target_count(_target_total_placed - _target_pegs.size(), _target_total_placed)
 
-func _target_total() -> int:
-	return RoundGoalScript.target_count_for(int(RunMan.state[&"ante"]))
 
 func launch(ball: BallState) -> void:
 	if _has_ball:
@@ -755,7 +754,7 @@ func _draw() -> void:
 			draw_arc(peg[&"pos"], radius + 3.0, 0.0, TAU, 24, Color(1.0, 0.85, 0.2), 2.0)
 			var f := ThemeDB.fallback_font
 			draw_string(f, peg[&"pos"] + Vector2(-5, 5), str(int(peg[&"hp"])),
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1))
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1))   # 偏移按目标钉 radius=16 调
 
 	# Halos: expanding ring on peg hit
 	for h in _peg_halos:
@@ -775,7 +774,7 @@ func _draw() -> void:
 	if _all_clear_ttl > 0.0:
 		var f2 := ThemeDB.fallback_font
 		var a := _all_clear_ttl / ALL_CLEAR_DUR
-		draw_string(f2, _rect.position + Vector2(160, 400), "ALL CLEAR!",
+		draw_string(f2, _rect.position + Vector2(90, 430), "ALL CLEAR!",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(1.0, 0.9, 0.3, a))
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
