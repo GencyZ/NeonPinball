@@ -11,6 +11,7 @@ const HALO_EXPAND   := 38.0     # ring max expand beyond peg radius (px)
 const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
+const ComboScoreScript := preload("res://scoring/combo_score.gd")
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const COMBO_DISPLAY_DUR := 0.6
 
@@ -500,9 +501,12 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _on_all_settled() -> void:
+	var combo_x: float = ComboScoreScript.xmult_for(_score_ctx.pegs_hit)
+	if combo_x > 1.0:
+		_score_ctx.add(ScoreContext.KIND_MUL_MULT, combo_x, &"combo")
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
-	_juice.on_settle(_last_settle_pos, score, RunMan.launches_exhausted())
+	_juice.on_settle_combo(_last_settle_pos, score, combo_x, RunMan.launches_exhausted())
 	_sfx.play_settle()
 	_combo = 0
 	$Hud.add_score(score)
