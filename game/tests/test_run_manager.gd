@@ -131,3 +131,54 @@ func test_reset_after_lose() -> void:
     assert_eq(mgr.state[&"ante"], 1)
     assert_eq(mgr.state[&"money"], 0)
     mgr.free()
+
+func test_targets_done_wins_below_quota() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()   # -> ROUND
+    mgr.state[&"round_score"] = 0.0
+    mgr.state[&"targets_done"] = true
+    mgr.advance()
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.ANTE_CLEAR, "clear wins even below quota")
+    mgr.free()
+
+func test_quota_still_wins_without_targets() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()
+    mgr.state[&"round_score"] = 9999.0
+    mgr.state[&"targets_done"] = false
+    mgr.advance()
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.ANTE_CLEAR, "quota wins (original behavior)")
+    mgr.free()
+
+func test_neither_loses() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()
+    mgr.state[&"round_score"] = 0.0
+    mgr.state[&"targets_done"] = false
+    mgr.advance()
+    assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.RUN_LOSE, "neither satisfied -> lose")
+    mgr.free()
+
+func test_start_round_resets_targets_done() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()
+    mgr.state[&"targets_done"] = true
+    mgr.state[&"round_score"] = 9999.0
+    mgr.advance()   # ROUND -> ANTE_CLEAR
+    mgr.advance()   # ANTE_CLEAR -> SHOP (round_in_ante +1)
+    mgr.advance()   # SHOP -> ROUND (_start_round)
+    assert_false(mgr.state[&"targets_done"], "new round resets targets_done")
+    mgr.free()
+
+func test_payout_targets_bonus() -> void:
+    var mgr := RunManagerScript.new()
+    mgr.advance(); mgr.advance()
+    mgr.state[&"money"] = 0
+    mgr.state[&"launches_left"] = 0
+    mgr.state[&"targets_done"] = true
+    mgr.state[&"round_score"] = 9999.0
+    mgr.advance()   # ROUND -> ANTE_CLEAR
+    mgr.advance()   # ANTE_CLEAR -> _payout + SHOP
+    # base_reward(3+1=4) + launch_bonus(0) + interest(0) + targets_bonus(5) = 9
+    assert_eq(mgr.state[&"money"], 9, "clear bonus +5")
+    mgr.free()

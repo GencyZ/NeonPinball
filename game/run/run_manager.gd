@@ -21,6 +21,7 @@ var state: Dictionary = {
     &"equipped_triggers":   [&"peg_bonus", &"bounce_mult", &"big_hit"],
     &"equipped_gate":       &"normal",
     &"boss_mod":            {},
+    &"targets_done":        false,
 }
 
 static func _make_default_state() -> Dictionary:
@@ -36,6 +37,7 @@ static func _make_default_state() -> Dictionary:
         &"equipped_triggers":   [&"peg_bonus", &"bounce_mult", &"big_hit"],
         &"equipped_gate":       &"normal",
         &"boss_mod":            {},
+        &"targets_done":        false,
     }
 
 const LAUNCHES_PER_ROUND := 5
@@ -64,7 +66,7 @@ func advance(input: Dictionary = {}) -> void:
         Phase.RUN_START:
             _start_round()
         Phase.ROUND, Phase.BOSS_ROUND:
-            if state[&"round_score"] >= state[&"quota"]:
+            if state[&"targets_done"] or state[&"round_score"] >= state[&"quota"]:
                 state[&"phase"] = Phase.ANTE_CLEAR
             else:
                 state[&"phase"] = Phase.RUN_LOSE
@@ -105,12 +107,14 @@ func _start_round() -> void:
     else:
         state[&"boss_mod"] = {}
         state[&"phase"] = Phase.ROUND
+    state[&"targets_done"] = false
 
 func _payout() -> void:
     var base_reward: int = 3 + state[&"ante"]
     var launch_bonus: int = state[&"launches_left"]
     var interest: int = mini(state[&"money"] / 5, 5)
-    state[&"money"] += base_reward + launch_bonus + interest
+    var targets_bonus: int = 5 if state[&"targets_done"] else 0
+    state[&"money"] += base_reward + launch_bonus + interest + targets_bonus
 
 func _roll_boss_mod() -> Dictionary:
     var rng := DeterministicRng.derive(state[&"master_seed"],
