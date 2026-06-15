@@ -1,7 +1,7 @@
 # 目标钉 / 每轮目标感设计文档
 
 **日期：** 2026-06-15
-**主题：** 给每轮一个看得见、打得掉的目标——金色目标钉（带 HP、跨发射持久），清光即过关并触发高潮，与配额双路并存，提升局内目标感
+**主题：** 给每轮一个看得见、打得掉的目标——金色目标钉（带 HP、跨发射持久），清光锁定过关并触发高潮（回合仍发完，不提前结束），与配额双路并存，提升局内目标感
 
 ---
 
@@ -80,20 +80,9 @@ static func target_hp_for(ante: int) -> int:
 - **新轮生成目标钉**（在 `_ready()` 首轮、`leave_shop()` 新轮）：用确定性 RNG 选 `RoundGoal.target_count_for(ante)` 个位置，建目标钉（标 `is_target=true`、`hp=RoundGoal.target_hp_for(ante)`、金色），存入持久集合 `_target_pegs`。
 - **持久**：`_on_peg_exit_done()` 重生填充钉时，把未清的目标钉并入棋盘（不参与填充钉的消失/重生动画）。即 `_pegs = 填充钉 + 存活目标钉`。
 - **命中**：PEG_HIT 命中目标钉 → `hp -= 1` + 命中确认（闪光/音）；`hp <= 0` 时清除该目标钉、从 `_target_pegs` 移除、刷新 HUD 计数；并计分（目标钉也给 base 分）。
-- **全清检测**：清除后若 `_target_pegs` 为空 → `RunMan.state[&"targets_done"] = true`。
-- **提前过关 + 高潮**（`_on_all_settled` 改）：
-  ```gdscript
-  if RunMan.state[&"targets_done"]:
-      _play_all_clear()          # 慢动作 + "ALL CLEAR!" 飘字 + 庆祝
-      RunMan.advance()           # 赢条件见 targets_done → ANTE_CLEAR
-      _handle_phase_transition()
-  elif RunMan.launches_exhausted():
-      RunMan.advance()           # 原配额判定
-      _handle_phase_transition()
-  else:
-      _start_peg_transition()
-  ```
-  （即"清光即过关，不必发完 5 球"。）
+- **全清检测 + 高潮（不提前过关）**：清除后若 `_target_pegs` 为空 → `RunMan.state[&"targets_done"] = true`，并**立即**播 ALL CLEAR 高潮（`_play_all_clear()`：慢动作 + "ALL CLEAR!" 飘字 + 庆祝）。**回合不结束**——继续发完剩余球（可继续刷分/combo）。
+- **`_on_all_settled` 不为 targets_done 单独改动**：仍是现有流程——`launches_exhausted()` → `RunMan.advance()`（赢条件已含 `targets_done`，见 §2）+ `_handle_phase_transition()`；否则 `_start_peg_transition()`。即回合照常发完 5 球，结束时凭 `targets_done 或 够配额` 判胜负。
+- 清光奖励金钱在 `_payout()` 按 `targets_done` 发放（回合结束 ANTE_CLEAR 时）。
 - 目标钉绘制：金色 + 脉冲 + 钉上显示剩余 HP（`draw_string` 数字）。
 
 ### 4. `view/hud.gd`（改动，目标计数器）
@@ -108,10 +97,9 @@ static func target_hp_for(ante: int) -> int:
 新轮（_ready/leave_shop）：
    选 K=target_count_for(ante) 个目标钉，各 hp=target_hp_for(ante)，存 _target_pegs（持久）
 每发：_generate_pegs() 填充钉 + 并入存活 _target_pegs
-命中目标钉：hp -= 1；hp<=0 → 移除 + 刷新 HUD；_target_pegs 空 → state.targets_done = true
-落定 _on_all_settled：
-   targets_done → ALL CLEAR 高潮 + advance（→ANTE_CLEAR，_payout 给奖励）
-   else launches_exhausted → advance（配额判定）
+命中目标钉：hp -= 1；hp<=0 → 移除 + 刷新 HUD；_target_pegs 空 → targets_done=true + 立即 ALL CLEAR 高潮（回合不结束）
+落定 _on_all_settled（不为 targets_done 改动）：
+   launches_exhausted → advance（赢条件 = targets_done 或 够配额；ANTE_CLEAR 时 _payout 按 targets_done 给奖励）
    else → 下一发
 ```
 
@@ -144,7 +132,7 @@ board_view 目标钉持久/HP/全清、HUD 计数、ALL CLEAR 高潮：实机确
 - [ ] 每轮开局有 K 个金色目标钉，和普通钉一眼区分，钉上显示剩余 HP
 - [ ] 目标钉跨本轮 5 发持续存在；填充钉仍每发重生
 - [ ] 命中目标钉扣 1 HP（跨发射保留），扣完才消失
-- [ ] 清光所有目标钉 → 立即过关（不必发完）+ ALL CLEAR 高潮 + 额外金钱
+- [ ] 清光所有目标钉 → ALL CLEAR 高潮 + 标记 targets_done（回合不提前结束，照常发完 5 球）；发完时凭 targets_done 过关 + 额外金钱
 - [ ] 没清光但够配额 → 照旧过关（双路保底）；皆不满足 → RUN_LOSE
 - [ ] HUD 显示 `目标 X/K`
 - [ ] `target_count_for`/`target_hp_for` 纯函数 + RunManager 双路逻辑全单测通过；现有测试除受影响项外保持绿
@@ -166,5 +154,5 @@ board_view 目标钉持久/HP/全清、HUD 计数、ALL CLEAR 高潮：实机确
 
 - "目标钉持久 + 填充钉重生"打破了当前"每发全部重生"，是本特性最主要的改动量；需保证目标钉不被卷入填充钉的消失/重生动画。
 - HP 数值（2~3）、目标钉数（3~6）、奖励（+5）为首版，待试玩调；调对应 const 即可（HP=1 退化为一击清）。
-- 提前过关在"落定时"判定（清光那一发落定即过关），非命中瞬间——保持与现有结算流程一致、避免球未停就切场景。
+- 清光**不提前结束回合**（用户 2026-06-15 定）：清光即给 ALL CLEAR 高潮 + 标记 `targets_done`，但仍发完 5 球——回合长度恒定、不突兀，且清光后可继续刷分/combo。胜负在发完时按 `targets_done 或 够配额` 判定。ALL CLEAR 高潮在命中清光的那一刻触发（仅 juice 慢动作/飘字，不切场景）。
 - 目标钉的 HP/清除是 view 层 + `state.targets_done`，不持久化存档、不影响确定性回放。
