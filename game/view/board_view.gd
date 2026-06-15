@@ -53,7 +53,7 @@ var _combo_display_ttl := 0.0
 var _sfx
 
 var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
-var _all_clear_ttl := 0.0           # ALL CLEAR 飘字计时
+var _all_clear_ttl := 0.0           # ALL CLEAR 大字计时（由 _draw() 读取绘制；见目标钉可视化任务）
 
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
@@ -169,6 +169,7 @@ func _generate_target_pegs() -> Array:
 	var ante: int = RunMan.state[&"ante"]
 	var k := RoundGoalScript.target_count_for(ante)
 	var hp := RoundGoalScript.target_hp_for(ante)
+	# tag 按 (ante, round_in_ante) 唯一区分，且与填充钉的 seed(master+launch_count) 不同源，互不相关
 	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]),
 		ante * 131 + int(RunMan.state[&"round_in_ante"]) * 17 + 1009)
 	var margin := 44.0
