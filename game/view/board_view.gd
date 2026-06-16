@@ -12,6 +12,7 @@ const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
 const ComboScoreScript := preload("res://scoring/combo_score.gd")
+const ScoreTickerScript := preload("res://juice/score_ticker.gd")
 const RoundGoalScript := preload("res://run/round_goal.gd")
 const ALL_CLEAR_DUR := 0.5
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
@@ -55,6 +56,8 @@ var _sfx
 var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
 var _target_total_placed: int = 0   # 本轮实际生成的目标钉数（用于 HUD 计数）
 var _all_clear_ttl := 0.0           # ALL CLEAR 大字计时（由 _draw() 读取绘制；见目标钉可视化任务）
+var _score_ticker
+var _live_target := 0.0
 
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
@@ -79,6 +82,7 @@ func _ready() -> void:
 	_engine = ScoringEngine.new()
 	_score_ctx = ScoreContext.new()
 	_juice = JuiceControllerScript.new()
+	_score_ticker = ScoreTickerScript.new()
 	_sfx = SfxControllerScript.new()
 	add_child(_sfx)
 
@@ -402,6 +406,8 @@ func launch(ball: BallState) -> void:
 	_sync_hud()
 	_score_ctx.clear_for_launch()
 	_combo = 0
+	_score_ticker.reset()
+	_live_target = 0.0
 	_combo_display_ttl = 0.0
 	_rebuild_wall_segs(false)  # open active gate for new ball
 	_active_balls = [ball]
@@ -560,6 +566,9 @@ func _process(delta: float) -> void:
 		_combo_display_ttl -= delta
 	if _all_clear_ttl > 0.0:
 		_all_clear_ttl -= delta
+	if _has_ball:
+		_live_target = _engine.settle(_score_ctx)[0]
+	_score_ticker.update(_live_target, delta)
 	_juice.update(delta)
 	$Camera2D.offset = _juice.camera_offset()
 	Engine.time_scale = _juice.time_scale()
@@ -571,6 +580,7 @@ func _on_all_settled() -> void:
 		_score_ctx.add(ScoreContext.KIND_MUL_MULT, combo_x, &"combo")
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
+	_live_target = score
 	_juice.on_settle_combo(_last_settle_pos, score, combo_x, RunMan.launches_exhausted())
 	_sfx.play_settle()
 	_combo = 0
@@ -784,6 +794,14 @@ func _draw() -> void:
 		var a := _all_clear_ttl / ALL_CLEAR_DUR
 		draw_string(f2, _rect.position + Vector2(90, 430), "ALL CLEAR!",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 56, Color(1.0, 0.9, 0.3, a))
+	var sv := int(round(_score_ticker.value()))
+	if sv > 0:
+		var tf := ThemeDB.fallback_font
+		var psc: float = _score_ticker.punch_scale()
+		var fsz := int(40.0 * psc)
+		var stxt := str(sv)
+		draw_string(tf, _rect.position + Vector2(270.0 - float(stxt.length()) * float(fsz) * 0.28, 60.0),
+			stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, Color(1, 1, 1))
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
