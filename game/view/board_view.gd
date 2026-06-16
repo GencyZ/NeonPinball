@@ -801,6 +801,7 @@ func _draw_neon_frame() -> void:
 	for i in n_bulbs:
 		var bp := float(i) / float(n_bulbs)
 		var bphase := _neon_phase if (i % 2 == 0) else _neon_phase + 0.5
+		# 近似居中：内/外线弧长不同，同 bp 在拐角处径向略偏，~12px 缝下肉眼可接受
 		var mid := (NeonFrameScript.point_at(poly, bp) + NeonFrameScript.point_at(inner, bp)) * 0.5
 		draw_circle(mid, BULB_RADIUS, NeonFrameScript.bulb_color(bp, bphase, _wall_heat))
 	# 热追逐光脉冲（高连击亮色高光，叠在最上）
