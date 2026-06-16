@@ -17,6 +17,8 @@ const RoundGoalScript := preload("res://run/round_goal.gd")
 const ALL_CLEAR_DUR := 0.5
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const NeonEnvScript := preload("res://view/neon_environment.gd")
+const NeonFrameScript := preload("res://juice/neon_frame.gd")
+const HALF_PULSE_LEN := 0.04   # 脉冲沿边框的归一化半宽
 const COMBO_DISPLAY_DUR := 0.6
 
 var _rect: Rect2
@@ -53,6 +55,8 @@ var _combo: int = 0
 var _last_hit_pos := Vector2.ZERO
 var _combo_display_ttl := 0.0
 var _sfx
+var _wall_heat := 0.0
+var _neon_phase := 0.0
 
 var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
 var _target_total_placed: int = 0   # 本轮实际生成的目标钉数（用于 HUD 计数）
@@ -466,6 +470,7 @@ func _process(delta: float) -> void:
 					_last_hit_pos = e[&"pos"]
 					_sfx.play_hit(_combo)
 					_combo_display_ttl = COMBO_DISPLAY_DUR
+					_wall_heat = minf(_wall_heat + NeonFrameScript.HEAT_PER_HIT, 1.0)
 					var hit_peg_id: int = e[&"peg_id"]
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
 						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
@@ -568,6 +573,8 @@ func _process(delta: float) -> void:
 			_peg_halos.remove_at(i)
 	if _combo_display_ttl > 0.0:
 		_combo_display_ttl -= delta
+	_wall_heat = NeonFrameScript.decay_heat(_wall_heat, delta)
+	_neon_phase = fmod(_neon_phase + delta * NeonFrameScript.speed_for_heat(_wall_heat), 1.0)
 	if _all_clear_ttl > 0.0:
 		_all_clear_ttl -= delta
 	if _has_ball:
@@ -750,6 +757,48 @@ func _draw_walls() -> void:
 	# Active launcher center dot
 	draw_circle(EntryResolver.LAUNCHER_POS[_entry_edge], 4.0, Color(1.0, 0.3, 1.0, 0.9))
 
+# 桶形边界闭合折线（顶左→顶右→右墙底→右漏斗内→左漏斗内→左墙底→回起点）。
+func _neon_perimeter() -> PackedVector2Array:
+	var o := _rect.position
+	return PackedVector2Array([
+		o + Vector2(0, 0),
+		o + Vector2(540, 0),
+		o + Vector2(540, 780),
+		o + Vector2(300, 900),
+		o + Vector2(240, 900),
+		o + Vector2(0, 780),
+	])
+
+# 沿边框画暗底光 + N 条追逐光脉冲；颜色/条数/亮度/流速由 _wall_heat 驱动。
+func _draw_neon_frame() -> void:
+	var poly := _neon_perimeter()
+	var pn := poly.size()
+	if pn < 2:
+		return
+	var col := NeonFrameScript.heat_color(_wall_heat)
+	# 暗底框
+	var base := Color(col.r * 0.6, col.g * 0.6, col.b * 0.6, 0.9)
+	for i in pn:
+		draw_line(poly[i], poly[(i + 1) % pn], base, 2.5)
+	# 追逐光脉冲
+	var n := NeonFrameScript.pulse_count_for_heat(_wall_heat)
+	if n <= 0:
+		return
+	var bright := NeonFrameScript.brightness_for_heat(_wall_heat)
+	var pcol := Color(col.r * bright, col.g * bright, col.b * bright)
+	var samples := 6
+	for i in n:
+		var center := fmod(_neon_phase + float(i) / float(n), 1.0)
+		var start_s := center - HALF_PULSE_LEN
+		var prev := NeonFrameScript.point_at(poly, fposmod(start_s, 1.0))
+		for k in range(1, samples + 1):
+			var frac := float(k) / float(samples)
+			var s := fposmod(start_s + 2.0 * HALF_PULSE_LEN * frac, 1.0)
+			var p := NeonFrameScript.point_at(poly, s)
+			var fall := 1.0 - absf(frac - 0.5) * 2.0   # 中间最亮，两端淡出
+			draw_line(prev, p, Color(pcol.r, pcol.g, pcol.b, 0.4 + 0.6 * fall), 3.0)
+			prev = p
+
 func _draw() -> void:
 	# Dying pegs: shrink + fade out
 	for dp in _dying_pegs:
@@ -815,6 +864,7 @@ func _draw() -> void:
 		draw_string(tf, _rect.position + Vector2(270.0 - tw * 0.5, 60.0),
 			stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, Color(1, 1, 1))
 	_draw_walls()
+	_draw_neon_frame()
 	for i in range(1, prediction_pts.size()):
 		draw_line(prediction_pts[i - 1], prediction_pts[i], Color(1, 1, 1, 0.4), 2.0)
 	for fan in prediction_fans:
