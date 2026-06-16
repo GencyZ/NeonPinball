@@ -5,6 +5,7 @@ const JUMP_FRAC := 0.15      # target 相对当前跳升超过此比例…
 const JUMP_MIN := 20.0       # …且绝对增量超过此值 → 触发 punch（两者都满足）
 const PUNCH_DUR := 0.18      # punch 持续（秒）
 const PUNCH_SCALE := 0.4     # punch 峰值额外缩放（1.0 → 1.4）
+const SNAP := 0.5            # display 与 target 差小于此（分）即吸附，避免无限逼近抖动
 
 var _display := 0.0
 var _target := 0.0
@@ -16,11 +17,11 @@ func update(target: float, delta: float) -> void:
 	if jump > JUMP_MIN and jump > _target * JUMP_FRAC:
 		_punch_ttl = PUNCH_DUR
 	_target = target
+	# 帧率相关的乘性 lerp（juice 表现可接受）；minf(1.0,…) 防低帧率过冲
 	_display += (_target - _display) * minf(1.0, APPROACH * delta)
-	if absf(_target - _display) < 0.5:
+	if absf(_target - _display) < SNAP:
 		_display = _target
-	if _punch_ttl > 0.0:
-		_punch_ttl = maxf(0.0, _punch_ttl - delta)
+	_punch_ttl = maxf(0.0, _punch_ttl - delta)   # 衰减至 0（maxf 已兜底，无需外层判断）
 
 func value() -> float:
 	return _display

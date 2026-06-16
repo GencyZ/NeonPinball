@@ -48,3 +48,10 @@ func test_reset() -> void:
 	t.reset()
 	assert_eq(t.value(), 0.0, "归零")
 	assert_almost_eq(t.punch_scale(), 1.0, 1e-3, "punch 归零")
+
+func test_frac_threshold_blocks_punch() -> void:
+	var t := ScoreTickerScript.new()
+	for i in 300:
+		t.update(200.0, 1.0 / 60.0)   # 收敛到 _target=200
+	t.update(222.0, 1.0 / 60.0)        # jump=22 > JUMP_MIN(20)，但 22 < 200*0.15=30 → 不 punch
+	assert_almost_eq(t.punch_scale(), 1.0, 1e-2, "超 JUMP_MIN 但未超 JUMP_FRAC → 不 punch")
