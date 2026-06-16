@@ -28,8 +28,8 @@ func test_pulse_count_monotonic_and_capped() -> void:
 	assert_eq(NeonFrameScript.pulse_count_for_heat(1.0), 4, "封顶 4 条")
 
 func test_speed_monotonic_and_range() -> void:
-	assert_almost_eq(NeonFrameScript.speed_for_heat(0.0), 0.15, 1e-4, "平静流速 0.15")
-	assert_almost_eq(NeonFrameScript.speed_for_heat(1.0), 0.8, 1e-4, "满热流速 0.8")
+	assert_almost_eq(NeonFrameScript.speed_for_heat(0.0), 0.10, 1e-4, "平静流速 0.10")
+	assert_almost_eq(NeonFrameScript.speed_for_heat(1.0), 0.60, 1e-4, "满热流速 0.60")
 	assert_gt(NeonFrameScript.speed_for_heat(1.0), NeonFrameScript.speed_for_heat(0.0), "流速随热度升")
 
 func test_brightness_monotonic_and_range() -> void:
@@ -94,3 +94,35 @@ func test_bulb_color_brightness_rises_and_hdr() -> void:
 
 func test_bulb_color_saturated() -> void:
 	assert_almost_eq(NeonFrameScript.bulb_color(0.3, 0.2, 0.5).s, 1.0, 1e-3, "饱和度 1")
+
+func test_frame_hue_cool_band_idle() -> void:
+	for p in [0.0, 0.25, 0.5, 0.75]:
+		var h: float = NeonFrameScript.frame_hue(p, 0.0, 0.0, 0.0)
+		assert_between(h, 0.39, 0.61, "平静窄冷带 @%.2f" % p)
+
+func test_frame_hue_widens_with_heat() -> void:
+	var h0: float = NeonFrameScript.frame_hue(0.0, 0.0, 0.0, 1.0)
+	var h5: float = NeonFrameScript.frame_hue(0.5, 0.0, 0.0, 1.0)
+	assert_gt(absf(h0 - h5), 0.3, "满热跨多色相")
+
+func test_frame_hue_cycles_with_hue_phase() -> void:
+	var a: float = NeonFrameScript.frame_hue(0.5, 0.0, 0.0, 0.0)
+	var b: float = NeonFrameScript.frame_hue(0.5, 0.0, 0.25, 0.0)
+	assert_gt(absf(a - b), 0.2, "hue_phase 推进 → 色带中心移动（变色）")
+
+func test_ambient_value_range_and_hdr() -> void:
+	var seen_hi := 0.0
+	for i in 40:
+		var p := float(i) / 40.0
+		var v0 := NeonFrameScript.ambient_value(p, 0.0, 0.0)
+		assert_between(v0, 0.34, 1.51, "idle 值域 @%.2f" % p)
+		seen_hi = maxf(seen_hi, NeonFrameScript.ambient_value(p, 0.0, 1.0))
+	assert_gt(seen_hi, 1.0, "满热峰值 HDR >1")
+
+func test_ambient_value_wave_moves() -> void:
+	var a := NeonFrameScript.ambient_value(0.0, 0.0, 1.0)
+	var b := NeonFrameScript.ambient_value(0.0, 0.25, 1.0)
+	assert_gt(absf(a - b), 0.01, "波随相位移动")
+
+func test_frame_color_saturated() -> void:
+	assert_almost_eq(NeonFrameScript.frame_color(0.3, 0.1, 0.2, 0.5).s, 1.0, 1e-3, "饱和度 1")
