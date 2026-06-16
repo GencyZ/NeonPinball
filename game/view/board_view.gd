@@ -641,6 +641,8 @@ func _handle_phase_transition() -> void:
 			else:
 				_handle_phase_transition()   # RUN_WIN: record the win, etc.
 		RunManager.Phase.RUN_WIN:
+			_live_target = 0.0
+			_score_ticker.reset()
 			var saved := SaveSystemScript.load_data()
 			var total: int = int(RunMan.state[&"money"])
 			if total > int(saved[&"best_score"]):
@@ -652,6 +654,8 @@ func _handle_phase_transition() -> void:
 			$Hud.set_gate_label("YOU WIN!  Best: %d" % int(saved[&"best_score"]))
 			$Hud.show_end_buttons()
 		RunManager.Phase.RUN_LOSE:
+			_live_target = 0.0
+			_score_ticker.reset()
 			var saved := SaveSystemScript.load_data()
 			saved[&"runs_completed"] = int(saved[&"runs_completed"]) + 1
 			SaveSystemScript.save(saved)
