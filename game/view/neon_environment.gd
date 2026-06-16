@@ -7,7 +7,7 @@ static func make_environment() -> Environment:
 	env.background_mode = Environment.BG_CANVAS
 	env.glow_enabled = true
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	env.glow_hdr_threshold = 1.0
+	env.glow_hdr_threshold = 0.8   # <1 让板面亮霓虹色（钉/球/墙 ~0.9-1.0）也溢光；HUD 在 CanvasLayer 不受影响。首版，实机调
 	env.glow_intensity = 1.0
 	env.glow_strength = 1.2
 	env.glow_bloom = 0.2

@@ -86,9 +86,9 @@ func _ready() -> void:
 	_score_ticker = ScoreTickerScript.new()
 	_sfx = SfxControllerScript.new()
 	add_child(_sfx)
-	var _we := WorldEnvironment.new()
-	_we.environment = NeonEnvScript.make_environment()
-	add_child(_we)
+	var we := WorldEnvironment.new()
+	we.environment = NeonEnvScript.make_environment()
+	add_child(we)
 
 	for tid in [&"peg_bonus", &"bounce_mult", &"big_hit"]:
 		_trigger_runtimes.append(TriggerRuntime.new(GameDB.triggers[tid]))
