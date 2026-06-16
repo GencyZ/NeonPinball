@@ -567,6 +567,7 @@ func _process(delta: float) -> void:
 	if _all_clear_ttl > 0.0:
 		_all_clear_ttl -= delta
 	if _has_ball:
+		# 飞行中实时值不含 combo（combo 仅在 _on_all_settled 注入，落定时再滚到含 combo 的终值）
 		_live_target = _engine.settle(_score_ctx)[0]
 	_score_ticker.update(_live_target, delta)
 	_juice.update(delta)
@@ -658,6 +659,8 @@ func _handle_phase_transition() -> void:
 			$Hud.show_end_buttons()
 
 func _show_shop_ui() -> void:
+	_live_target = 0.0
+	_score_ticker.reset()
 	_active_shop = Shop.new()
 	_active_shop.roll(
 		RunMan.state[&"master_seed"],
@@ -800,7 +803,8 @@ func _draw() -> void:
 		var psc: float = _score_ticker.punch_scale()
 		var fsz := int(40.0 * psc)
 		var stxt := str(sv)
-		draw_string(tf, _rect.position + Vector2(270.0 - float(stxt.length()) * float(fsz) * 0.28, 60.0),
+		var tw := tf.get_string_size(stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
+		draw_string(tf, _rect.position + Vector2(270.0 - tw * 0.5, 60.0),
 			stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, Color(1, 1, 1))
 	_draw_walls()
 	for i in range(1, prediction_pts.size()):
