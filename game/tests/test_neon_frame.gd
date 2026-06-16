@@ -67,3 +67,29 @@ func test_point_at_negative_s_wraps() -> void:
 	var b := NeonFrameScript.point_at(sq, 0.75)
 	assert_almost_eq(a.x, b.x, 1e-4, "负 s 环绕 x")
 	assert_almost_eq(a.y, b.y, 1e-4, "负 s 环绕 y")
+
+func test_hue_spread_curve() -> void:
+	assert_almost_eq(NeonFrameScript.hue_spread_for_heat(0.0), 0.1, 1e-4, "平静色带 0.1")
+	assert_almost_eq(NeonFrameScript.hue_spread_for_heat(1.0), 0.5, 1e-4, "满热色带 0.5")
+	assert_gt(NeonFrameScript.hue_spread_for_heat(1.0), NeonFrameScript.hue_spread_for_heat(0.0), "色带随热度变宽")
+
+func test_bulb_color_cool_band_when_idle() -> void:
+	for p in [0.0, 0.25, 0.5, 0.75]:
+		var h: float = NeonFrameScript.bulb_color(p, 0.0, 0.0).h
+		assert_between(h, 0.39, 0.61, "平静色相落冷带 @%.2f" % p)
+
+func test_bulb_color_widens_with_heat() -> void:
+	var h0: float = NeonFrameScript.bulb_color(0.0, 0.0, 1.0).h
+	var h5: float = NeonFrameScript.bulb_color(0.5, 0.0, 1.0).h
+	assert_gt(absf(h0 - h5), 0.3, "满热跨多色相")
+
+func test_bulb_color_brightness_rises_and_hdr() -> void:
+	var lo := NeonFrameScript.bulb_color(0.0, 0.0, 0.0)
+	var hi := NeonFrameScript.bulb_color(0.0, 0.0, 1.0)
+	var lo_max := maxf(maxf(lo.r, lo.g), lo.b)
+	var hi_max := maxf(maxf(hi.r, hi.g), hi.b)
+	assert_gt(hi_max, lo_max, "亮度随热度升")
+	assert_gt(hi_max, 1.0, "满热 HDR (>1 触发 bloom)")
+
+func test_bulb_color_saturated() -> void:
+	assert_almost_eq(NeonFrameScript.bulb_color(0.3, 0.2, 0.5).s, 1.0, 1e-3, "饱和度 1")

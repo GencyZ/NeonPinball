@@ -37,6 +37,24 @@ static func brightness_for_heat(heat: float) -> float:
 static func decay_heat(heat: float, delta: float) -> float:
 	return maxf(heat - DECAY_RATE * delta, 0.0)
 
+# 灯泡色相 = 以青为中心的一段色带。色带宽度随热度从冷窄带铺到全频谱。
+const COOL_HUE := 0.5          # 青（HSV 色相）
+const COOL_SPREAD := 0.1       # 平静色带半宽（青附近几种冷色）
+const FULL_SPREAD := 0.5       # 满热色带半宽（±0.5 = 整圈彩虹）
+
+# 色带半宽：热度越高色域越宽（冷色窄带 → 全频谱）
+static func hue_spread_for_heat(heat: float) -> float:
+	return lerpf(COOL_SPREAD, FULL_SPREAD, clampf(heat, 0.0, 1.0))
+
+# 环位置 p∈[0,1) + 流动相位 + 热度 → 灯泡颜色。
+# 色相 = 青 ± 色带，沿环铺开；平静窄冷带、满热全彩虹。亮度随热度（>1 触发 bloom）。
+static func bulb_color(p: float, phase: float, heat: float) -> Color:
+	var local := fposmod(p + phase, 1.0)
+	var spread := hue_spread_for_heat(heat)
+	var hue := fposmod(COOL_HUE + (local - 0.5) * 2.0 * spread, 1.0)
+	var val := lerpf(0.9, 2.4, clampf(heat, 0.0, 1.0))
+	return Color.from_hsv(hue, 1.0, val)
+
 # 闭合折线按弧长采样：s∈[0,1) 绕一圈，首尾相连。
 static func point_at(poly: PackedVector2Array, s: float) -> Vector2:
 	var n := poly.size()
