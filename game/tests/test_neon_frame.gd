@@ -55,3 +55,15 @@ func test_point_at_square() -> void:
 func test_point_at_wraps() -> void:
 	var sq := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
 	assert_eq(NeonFrameScript.point_at(sq, 1.0), NeonFrameScript.point_at(sq, 0.0), "s=1 绕回 s=0")
+
+func test_point_at_degenerate() -> void:
+	assert_eq(NeonFrameScript.point_at(PackedVector2Array([]), 0.5), Vector2.ZERO, "空折线 → 零向量")
+	var one := PackedVector2Array([Vector2(3, 4)])
+	assert_eq(NeonFrameScript.point_at(one, 0.7), Vector2(3, 4), "单点 → 该点")
+
+func test_point_at_negative_s_wraps() -> void:
+	var sq := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var a := NeonFrameScript.point_at(sq, -0.25)
+	var b := NeonFrameScript.point_at(sq, 0.75)
+	assert_almost_eq(a.x, b.x, 1e-4, "负 s 环绕 x")
+	assert_almost_eq(a.y, b.y, 1e-4, "负 s 环绕 y")
