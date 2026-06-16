@@ -48,6 +48,7 @@ static func hue_spread_for_heat(heat: float) -> float:
 
 const WAVE_COUNT := 5.0       # 行波波峰数（"多几处"）
 const HUE_CYCLE := 0.5        # 变色相位相对流动的速率比（缓慢变色）
+# caller（board_view）: _neon_hue_phase += speed_for_heat(heat) * HUE_CYCLE * delta，再作 frame_*() 的 hue_phase 入参
 
 # 色相：以 hue_phase 缓慢循环的色带中心 + 位置展开（连击越热色带越宽）。
 static func frame_hue(p: float, flow_phase: float, hue_phase: float, heat: float) -> float:

@@ -110,6 +110,12 @@ func test_frame_hue_cycles_with_hue_phase() -> void:
 	var b: float = NeonFrameScript.frame_hue(0.5, 0.0, 0.25, 0.0)
 	assert_gt(absf(a - b), 0.2, "hue_phase 推进 → 色带中心移动（变色）")
 
+func test_frame_hue_flow_phase_shifts_position() -> void:
+	# flow_phase 推进 → 同一 p 在冷带内的位置移动（local = fposmod(p+flow_phase)）
+	var a: float = NeonFrameScript.frame_hue(0.0, 0.0, 0.0, 0.0)
+	var b: float = NeonFrameScript.frame_hue(0.0, 0.5, 0.0, 0.0)
+	assert_gt(absf(a - b), 0.05, "flow_phase 推进 → 冷带内位置移动")
+
 func test_ambient_value_range_and_hdr() -> void:
 	var seen_hi := 0.0
 	for i in 40:
