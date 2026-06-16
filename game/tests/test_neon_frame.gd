@@ -79,6 +79,7 @@ func test_bulb_color_cool_band_when_idle() -> void:
 		assert_between(h, 0.39, 0.61, "平静色相落冷带 @%.2f" % p)
 
 func test_bulb_color_widens_with_heat() -> void:
+	# 满热 spread=0.5：对蹄点 p=0/0.5 的色相分别为 0.0/0.5，相距 0.5 >> 0.3
 	var h0: float = NeonFrameScript.bulb_color(0.0, 0.0, 1.0).h
 	var h5: float = NeonFrameScript.bulb_color(0.5, 0.0, 1.0).h
 	assert_gt(absf(h0 - h5), 0.3, "满热跨多色相")

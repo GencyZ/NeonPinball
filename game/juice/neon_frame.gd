@@ -52,7 +52,7 @@ static func bulb_color(p: float, phase: float, heat: float) -> Color:
 	var local := fposmod(p + phase, 1.0)
 	var spread := hue_spread_for_heat(heat)
 	var hue := fposmod(COOL_HUE + (local - 0.5) * 2.0 * spread, 1.0)
-	var val := lerpf(0.9, 2.4, clampf(heat, 0.0, 1.0))
+	var val := lerpf(0.9, 2.4, clampf(heat, 0.0, 1.0))   # 亮度 0.9（暗冷）→ 2.4（热 bloom）
 	return Color.from_hsv(hue, 1.0, val)
 
 # 闭合折线按弧长采样：s∈[0,1) 绕一圈，首尾相连。
