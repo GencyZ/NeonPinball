@@ -16,6 +16,7 @@ const ScoreTickerScript := preload("res://juice/score_ticker.gd")
 const RoundGoalScript := preload("res://run/round_goal.gd")
 const ALL_CLEAR_DUR := 0.5
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
+const NeonEnvScript := preload("res://view/neon_environment.gd")
 const COMBO_DISPLAY_DUR := 0.6
 
 var _rect: Rect2
@@ -85,6 +86,9 @@ func _ready() -> void:
 	_score_ticker = ScoreTickerScript.new()
 	_sfx = SfxControllerScript.new()
 	add_child(_sfx)
+	var _we := WorldEnvironment.new()
+	_we.environment = NeonEnvScript.make_environment()
+	add_child(_we)
 
 	for tid in [&"peg_bonus", &"bounce_mult", &"big_hit"]:
 		_trigger_runtimes.append(TriggerRuntime.new(GameDB.triggers[tid]))
