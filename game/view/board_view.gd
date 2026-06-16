@@ -19,6 +19,9 @@ const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const NeonEnvScript := preload("res://view/neon_environment.gd")
 const NeonFrameScript := preload("res://juice/neon_frame.gd")
 const HALF_PULSE_LEN := 0.04   # 脉冲沿边框的归一化半宽
+const NEON_GAP := 12.0          # 内外线间距
+const BULB_SPACING := 40.0      # 灯泡间距(px)
+const BULB_RADIUS := 2.5        # 灯泡半径
 const COMBO_DISPLAY_DUR := 0.6
 
 var _rect: Rect2
@@ -769,18 +772,38 @@ func _neon_perimeter() -> PackedVector2Array:
 		o + Vector2(0, 780),
 	])
 
-# 沿边框画暗底光 + N 条追逐光脉冲；颜色/条数/亮度/流速由 _wall_heat 驱动。
+# 内线：外线各点朝板心偏移 NEON_GAP，与外线构成中空缝。
+func _neon_inner_perimeter() -> PackedVector2Array:
+	var center := _rect.get_center()
+	var inner := PackedVector2Array()
+	for pt in _neon_perimeter():
+		inner.append(pt + (center - pt).normalized() * NEON_GAP)
+	return inner
+
+# 中空双线 + 缝中灯泡环 + 热追逐光脉冲；色/数/速/亮由 _wall_heat 驱动。
 func _draw_neon_frame() -> void:
 	var poly := _neon_perimeter()
+	var inner := _neon_inner_perimeter()
 	var pn := poly.size()
 	if pn < 2:
 		return
 	var col := NeonFrameScript.heat_color(_wall_heat)
-	# 暗底框
+	# 内外双线（暗光成光管，靠 bloom 发光）
 	var base := Color(col.r * 0.6, col.g * 0.6, col.b * 0.6, 0.9)
 	for i in pn:
 		draw_line(poly[i], poly[(i + 1) % pn], base, 2.5)
-	# 追逐光脉冲
+		draw_line(inner[i], inner[(i + 1) % pn], base, 2.5)
+	# 缝中一圈小灯泡（奇偶错相，交替缓慢流动）
+	var total := 0.0
+	for i in pn:
+		total += poly[i].distance_to(poly[(i + 1) % pn])
+	var n_bulbs := maxi(1, int(total / BULB_SPACING))
+	for i in n_bulbs:
+		var bp := float(i) / float(n_bulbs)
+		var bphase := _neon_phase if (i % 2 == 0) else _neon_phase + 0.5
+		var mid := (NeonFrameScript.point_at(poly, bp) + NeonFrameScript.point_at(inner, bp)) * 0.5
+		draw_circle(mid, BULB_RADIUS, NeonFrameScript.bulb_color(bp, bphase, _wall_heat))
+	# 热追逐光脉冲（高连击亮色高光，叠在最上）
 	var n := NeonFrameScript.pulse_count_for_heat(_wall_heat)
 	if n <= 0:
 		return
@@ -795,7 +818,7 @@ func _draw_neon_frame() -> void:
 			var frac := float(k) / float(samples)
 			var s := fposmod(start_s + 2.0 * HALF_PULSE_LEN * frac, 1.0)
 			var p := NeonFrameScript.point_at(poly, s)
-			var fall := 1.0 - absf(frac - 0.5) * 2.0   # 中间最亮，两端淡出
+			var fall := 1.0 - absf(frac - 0.5) * 2.0
 			draw_line(prev, p, Color(pcol.r, pcol.g, pcol.b, 0.4 + 0.6 * fall), 3.0)
 			prev = p
 
