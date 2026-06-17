@@ -6,6 +6,7 @@ const PEG_ANIM_DUR := 0.18      # peg hit pop duration (s)
 const PEG_ANIM_SCALE := 0.5     # extra radius at pop peak (1.0 -> 1.5x)
 const PEG_EXIT_DUR  := 0.4      # peg disappear animation (s)
 const PEG_ENTER_DUR := 0.4      # peg appear animation (s)
+const TOPUP_COUNT := 3          # 每发落定补几颗新钉（持久棋盘头号旋钮，见 balance-tunables）
 const HALO_DUR      := 0.45     # expanding ring on peg hit (s)
 const HALO_EXPAND   := 38.0     # ring max expand beyond peg radius (px)
 const RunManagerScript := preload("res://run/run_manager.gd")
@@ -14,6 +15,7 @@ const JuiceControllerScript := preload("res://juice/juice_controller.gd")
 const ComboScoreScript := preload("res://scoring/combo_score.gd")
 const ScoreTickerScript := preload("res://juice/score_ticker.gd")
 const RoundGoalScript := preload("res://run/round_goal.gd")
+const BoardRefillScript := preload("res://run/board_refill.gd")
 const ALL_CLEAR_DUR := 0.5
 const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const NeonEnvScript := preload("res://view/neon_environment.gd")
@@ -44,6 +46,7 @@ var _events: Array = []
 var _event_cursor := 0
 var _flashes: Array = []
 var _peg_anims: Dictionary = {}   # peg_id -> remaining pop-anim ttl
+var _hit_ids: Dictionary = {}     # 本发被"直接命中"的非目标钉的稳定 id 集合（落定时据此清除）
 
 var _launch_count := 0
 
@@ -129,33 +132,31 @@ func _generate_pegs(avoid_pos: Array = []) -> Array:
 	var ria: int  = RunMan.state[&"round_in_ante"]
 	var depth := (ante - 1) * 3 + ria   # 0 (ante1 r1) … 23 (ante8 boss)
 	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]) + _launch_count, 0x9E3779B9)
-
 	var count := rng.range_int(25 + ante * 2, 38 + ante * 3)
+	return _place_pegs(count, avoid_pos, rng, depth)
 
-	# Placeable area: inside board, above funnel, with margins
+# 放置 count 颗钉：随机 pos + 半径 10-20 + 避重(避开已放置 + avoid_pos) + 按 depth 选类型。
+# 供 _generate_pegs(整盘) 与 _topup_pegs(补钉) 共用。
+func _place_pegs(count: int, avoid_pos: Array, rng: DeterministicRng, depth: int) -> Array:
 	var margin := 44.0
 	var area := Rect2(
 		_rect.position.x + margin,
 		_rect.position.y + margin + 80.0,   # extra top gap for channel walls
 		_rect.size.x - margin * 2.0,
 		780.0 - margin * 2.0 - 80.0)        # height fits above funnel (local y < 780)
-
 	var special_rate := minf(float(depth) / 23.0 * 0.55, 0.55)
 	var type_pool := _build_type_pool(depth)
-
 	var list: Array = []
 	var placed_pos: Array = []
 	var placed_rad: Array = []
 	var id := 0
 	var attempts := 0
-
 	while list.size() < count and attempts < count * 30:
 		attempts += 1
 		var r := rng.range_float(10.0, 20.0)
 		var pos := Vector2(
 			rng.range_float(area.position.x + r, area.end.x - r),
 			rng.range_float(area.position.y + r, area.end.y - r))
-
 		var too_close := false
 		for j in placed_pos.size():
 			if pos.distance_to(placed_pos[j]) < r + placed_rad[j] + 18.0:
@@ -166,13 +167,11 @@ func _generate_pegs(avoid_pos: Array = []) -> Array:
 					too_close = true; break
 		if too_close:
 			continue
-
 		var peg_type: PegType
 		if type_pool.size() > 0 and rng.next_float() < special_rate:
 			peg_type = type_pool[rng.range_int(0, type_pool.size())]
 		else:
 			peg_type = GameDB.peg_types[&"normal"]
-
 		list.append({&"id": id, &"pos": pos, &"radius": r,
 					 &"base_score": r * 0.6, &"type": peg_type,
 					 &"frozen": false, &"poisoned": false})
@@ -180,6 +179,17 @@ func _generate_pegs(avoid_pos: Array = []) -> Array:
 		placed_rad.append(r)
 		id += 1
 	return list
+
+# 落定后补 n 颗新钉：避开现有所有钉，确定性 RNG（salt 0x85EBCA6B 区别于发钉 0x9E3779B9，互不相关）。
+func _topup_pegs(n: int) -> Array:
+	var ante: int = RunMan.state[&"ante"]
+	var ria: int  = RunMan.state[&"round_in_ante"]
+	var depth := (ante - 1) * 3 + ria
+	var avoid: Array = []
+	for peg in _pegs:
+		avoid.append(peg[&"pos"])
+	var rng := DeterministicRng.derive(int(RunMan.state[&"master_seed"]) + _launch_count, 0x85EBCA6B)
+	return _place_pegs(n, avoid, rng, depth)
 
 # 每轮生成一次的持久目标钉（金色、带 HP）。确定性 RNG。
 func _generate_target_pegs() -> Array:
@@ -417,6 +427,7 @@ func launch(ball: BallState) -> void:
 	RunMan.spend_launch()
 	_sync_hud()
 	_score_ctx.clear_for_launch()
+	_hit_ids.clear()
 	_combo = 0
 	_score_ticker.reset()
 	_live_target = 0.0
@@ -479,6 +490,8 @@ func _process(delta: float) -> void:
 					if hit_peg_id >= 0 and hit_peg_id < _pegs.size():
 						_peg_anims[hit_peg_id] = PEG_ANIM_DUR
 						var hit_peg: Dictionary = _pegs[hit_peg_id]
+						if not hit_peg.get(&"is_target", false):
+							_hit_ids[int(hit_peg[&"id"])] = true
 						var hit_type: PegType = hit_peg.get(&"type")
 						var behavior := hit_type.behavior if hit_type != null else PegType.Behavior.NORMAL
 						if hit_peg.get(&"is_target", false):
@@ -618,29 +631,31 @@ func _on_all_settled() -> void:
 func _start_peg_transition() -> void:
 	_is_transitioning = true
 	_dying_pegs.clear()
-	var survivors: Array = []
+	# 只清"本发被直接命中的非目标钉"（缩小退场）；没撞的 + 目标钉留下（持久）。
 	for peg in _pegs:
 		if peg.get(&"is_target", false):
-			survivors.append(peg)   # 目标钉持久，不消失
-		else:
+			continue
+		if _hit_ids.has(int(peg[&"id"])):
 			_dying_pegs.append({&"data": peg.duplicate(), &"ttl": PEG_EXIT_DUR, &"max_ttl": PEG_EXIT_DUR})
-	_pegs = survivors
-	for i in _pegs.size():
-		_pegs[i][&"id"] = i
-	_sim = _make_sim(_pegs)
-	_rebuild_wall_segs(false)
+	_pegs = BoardRefillScript.survivors(_pegs, _hit_ids)
+	# id 重排 / _make_sim / _rebuild_wall_segs 推迟到补钉后统一做（见 _on_peg_exit_done）；
+	# 退场期无球、sim/walls 不被使用（_is_transitioning 期间 input 也不出预测线）。
 	get_tree().create_timer(PEG_EXIT_DUR).timeout.connect(_on_peg_exit_done)
 
 func _on_peg_exit_done() -> void:
 	_dying_pegs.clear()
-	_pegs = _compose_pegs()
+	# 持久棋盘：保留存活钉，补 TOPUP_COUNT 颗新钉（不再整盘重随机）。
+	var fresh: Array = _topup_pegs(TOPUP_COUNT)
+	var fresh_count: int = fresh.size()
+	_pegs.append_array(fresh)
+	for i in _pegs.size():
+		_pegs[i][&"id"] = i
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)
+	# 只给新补的钉播放放大出现动画（存活钉不重播）。
 	_peg_enter_ttls.clear()
-	for peg in _pegs:
-		if peg.get(&"is_target", false):
-			continue   # 目标钉一直在场，不播放出现动画
-		_peg_enter_ttls[peg[&"id"]] = PEG_ENTER_DUR
+	for i in range(_pegs.size() - fresh_count, _pegs.size()):
+		_peg_enter_ttls[_pegs[i][&"id"]] = PEG_ENTER_DUR
 	get_tree().create_timer(PEG_ENTER_DUR).timeout.connect(_on_peg_enter_done)
 
 func _on_peg_enter_done() -> void:
