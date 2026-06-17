@@ -67,15 +67,6 @@ static func ambient_value(p: float, flow_phase: float, heat: float) -> float:
 static func frame_color(p: float, flow_phase: float, hue_phase: float, heat: float) -> Color:
 	return Color.from_hsv(frame_hue(p, flow_phase, hue_phase, heat), 1.0, ambient_value(p, flow_phase, heat))
 
-# 环位置 p∈[0,1) + 流动相位 + 热度 → 灯泡颜色。
-# 色相 = 青 ± 色带，沿环铺开；平静窄冷带、满热全彩虹。亮度随热度（>1 触发 bloom）。
-static func bulb_color(p: float, phase: float, heat: float) -> Color:
-	var local := fposmod(p + phase, 1.0)
-	var spread := hue_spread_for_heat(heat)
-	var hue := fposmod(COOL_HUE + (local - 0.5) * 2.0 * spread, 1.0)
-	var val := lerpf(0.9, 2.4, clampf(heat, 0.0, 1.0))   # 亮度 0.9（暗冷）→ 2.4（热 bloom）
-	return Color.from_hsv(hue, 1.0, val)
-
 # 闭合折线按弧长采样：s∈[0,1) 绕一圈，首尾相连。
 static func point_at(poly: PackedVector2Array, s: float) -> Vector2:
 	var n := poly.size()

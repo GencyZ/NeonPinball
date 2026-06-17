@@ -19,8 +19,8 @@ const SfxControllerScript := preload("res://juice/sfx_controller.gd")
 const NeonEnvScript := preload("res://view/neon_environment.gd")
 const NeonFrameScript := preload("res://juice/neon_frame.gd")
 const HALF_PULSE_LEN := 0.04   # 脉冲沿边框的归一化半宽
-const NEON_GAP := 12.0          # 内外线间距
-const BULB_SPACING := 40.0      # 灯泡间距(px)
+const NEON_GAP := 24.0          # 内外线间距
+const BULB_SPACING := 32.0      # 灯泡间距(px)
 const BULB_RADIUS := 2.5        # 灯泡半径
 const COMBO_DISPLAY_DUR := 0.6
 
@@ -60,6 +60,7 @@ var _combo_display_ttl := 0.0
 var _sfx
 var _wall_heat := 0.0
 var _neon_phase := 0.0
+var _neon_hue_phase := 0.0
 
 var _target_pegs: Array = []        # 跨本轮持久的目标钉 dict（含 hp/is_target）
 var _target_total_placed: int = 0   # 本轮实际生成的目标钉数（用于 HUD 计数）
@@ -578,6 +579,7 @@ func _process(delta: float) -> void:
 		_combo_display_ttl -= delta
 	_wall_heat = NeonFrameScript.decay_heat(_wall_heat, delta)
 	_neon_phase = fmod(_neon_phase + delta * NeonFrameScript.speed_for_heat(_wall_heat), 1.0)
+	_neon_hue_phase = fmod(_neon_hue_phase + delta * NeonFrameScript.speed_for_heat(_wall_heat) * NeonFrameScript.HUE_CYCLE, 1.0)
 	if _all_clear_ttl > 0.0:
 		_all_clear_ttl -= delta
 	if _has_ball:
@@ -780,48 +782,58 @@ func _neon_inner_perimeter() -> PackedVector2Array:
 		inner.append(pt + (center - pt).normalized() * NEON_GAP)
 	return inner
 
-# 中空双线 + 缝中灯泡环 + 热追逐光脉冲；色/数/速/亮由 _wall_heat 驱动。
+# 沿一条闭合线按弧长采样上色（行波明暗 + 变色）。
+func _draw_flow_line(line: PackedVector2Array, seg_count: int) -> void:
+	var prev := NeonFrameScript.point_at(line, 0.0)
+	for k in range(1, seg_count + 1):
+		var pt := NeonFrameScript.point_at(line, float(k) / float(seg_count))
+		var mid_s := (float(k) - 0.5) / float(seg_count)
+		draw_line(prev, pt, NeonFrameScript.frame_color(mid_s, _neon_phase, _neon_hue_phase, _wall_heat), 2.5)
+		prev = pt
+
+# 在一条线上画一条热脉冲高光（中心 center，颜色 pcol）。
+func _draw_pulse_on(line: PackedVector2Array, center: float, pcol: Color) -> void:
+	var start_s := center - HALF_PULSE_LEN
+	var prev := NeonFrameScript.point_at(line, fposmod(start_s, 1.0))
+	for k in range(1, 7):
+		var frac := float(k) / 6.0
+		var pt := NeonFrameScript.point_at(line, fposmod(start_s + 2.0 * HALF_PULSE_LEN * frac, 1.0))
+		var fall := 1.0 - absf(frac - 0.5) * 2.0
+		draw_line(prev, pt, Color(pcol.r, pcol.g, pcol.b, 0.4 + 0.6 * fall), 3.0)
+		prev = pt
+
+# 中空双线（行波明暗+变色）+ 缝中灯泡环 + 内外热脉冲；全由 _wall_heat/_neon_phase/_neon_hue_phase 驱动。
 func _draw_neon_frame() -> void:
 	var poly := _neon_perimeter()
 	var inner := _neon_inner_perimeter()
 	var pn := poly.size()
 	if pn < 2:
 		return
-	var col := NeonFrameScript.heat_color(_wall_heat)
-	# 内外双线（暗光成光管，靠 bloom 发光）
-	var base := Color(col.r * 0.6, col.g * 0.6, col.b * 0.6, 0.9)
-	for i in pn:
-		draw_line(poly[i], poly[(i + 1) % pn], base, 2.5)
-		draw_line(inner[i], inner[(i + 1) % pn], base, 2.5)
-	# 缝中一圈小灯泡（奇偶错相，交替缓慢流动）
 	var total := 0.0
 	for i in pn:
 		total += poly[i].distance_to(poly[(i + 1) % pn])
+	var seg_count := maxi(8, int(total / 10.0))
+	# 内外双线：行波明暗 + 变色（同 s/相位 → 同步）
+	_draw_flow_line(poly, seg_count)
+	_draw_flow_line(inner, seg_count)
+	# 缝中一圈小灯泡（奇偶错相，交替）
 	var n_bulbs := maxi(1, int(total / BULB_SPACING))
 	for i in n_bulbs:
 		var bp := float(i) / float(n_bulbs)
 		var bphase := _neon_phase if (i % 2 == 0) else _neon_phase + 0.5
-		# 近似居中：内/外线弧长不同，同 bp 在拐角处径向略偏，~12px 缝下肉眼可接受
 		var mid := (NeonFrameScript.point_at(poly, bp) + NeonFrameScript.point_at(inner, bp)) * 0.5
-		draw_circle(mid, BULB_RADIUS, NeonFrameScript.bulb_color(bp, bphase, _wall_heat))
-	# 热追逐光脉冲（高连击亮色高光，叠在最上）
+		draw_circle(mid, BULB_RADIUS, NeonFrameScript.frame_color(bp, bphase, _neon_hue_phase, _wall_heat))
+	# 热脉冲（连击叠加，内外两线同相位 → 同步）
 	var n := NeonFrameScript.pulse_count_for_heat(_wall_heat)
 	if n <= 0:
 		return
 	var bright := NeonFrameScript.brightness_for_heat(_wall_heat)
-	var pcol := Color(col.r * bright, col.g * bright, col.b * bright)
-	var samples := 6
+	var hc := NeonFrameScript.heat_color(_wall_heat)
+	var pcol := Color(hc.r * bright, hc.g * bright, hc.b * bright)
 	for i in n:
 		var center := fmod(_neon_phase + float(i) / float(n), 1.0)
-		var start_s := center - HALF_PULSE_LEN
-		var prev := NeonFrameScript.point_at(poly, fposmod(start_s, 1.0))
-		for k in range(1, samples + 1):
-			var frac := float(k) / float(samples)
-			var s := fposmod(start_s + 2.0 * HALF_PULSE_LEN * frac, 1.0)
-			var p := NeonFrameScript.point_at(poly, s)
-			var fall := 1.0 - absf(frac - 0.5) * 2.0
-			draw_line(prev, p, Color(pcol.r, pcol.g, pcol.b, 0.4 + 0.6 * fall), 3.0)
-			prev = p
+		_draw_pulse_on(poly, center, pcol)
+		_draw_pulse_on(inner, center, pcol)
 
 func _draw() -> void:
 	# Dying pegs: shrink + fade out
