@@ -197,3 +197,14 @@ func test_targets_done_wins_on_boss_round() -> void:
     mgr.advance()
     assert_eq(mgr.state[&"phase"], RunManagerScript.Phase.ANTE_CLEAR, "Boss 轮清光也过关")
     mgr.free()
+
+func test_boss_mod_for_deterministic() -> void:
+    var a: Dictionary = RunManagerScript.boss_mod_for(12345, 3)
+    var b: Dictionary = RunManagerScript.boss_mod_for(12345, 3)
+    assert_eq(a.get(&"type"), b.get(&"type"), "同 seed+ante 可复现")
+    assert_true(a.get(&"type") == &"ban_mult" or a.get(&"type") == &"sparse", "type 合法")
+
+func test_boss_mod_label_mapping() -> void:
+    assert_eq(RunManagerScript.boss_mod_label({&"type": &"ban_mult"}), "禁用 MULT 钉")
+    assert_eq(RunManagerScript.boss_mod_label({&"type": &"sparse", &"remove_chance": 0.3}), "钉子稀疏 −30%")
+    assert_eq(RunManagerScript.boss_mod_label({}), "", "未知/空 → 空串")

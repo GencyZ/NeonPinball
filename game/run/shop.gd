@@ -71,9 +71,15 @@ func _roll_from_pool(pool: Array, ante: int, rng: DeterministicRng) -> Resource:
 			return pool[i]
 	return pool[-1]
 
-func _price_of(item: Resource, ante: int) -> int:
-	var r: int = 0
-	if "rarity" in item:
-		r = item.rarity
+# 价格纯函数（供 sell_value 与实例 _price_of 共用）
+static func price_for(item: Resource, ante: int) -> int:
+	var r: int = item.rarity if ("rarity" in item) else 0
 	var base: int = ([3, 5, 8, 12] as Array[int])[clampi(r, 0, 3)]
 	return base + ante / 2
+
+# 卖出回收价 = 当前 ante 价的一半（下取整，至少 1）
+static func sell_value(item: Resource, ante: int) -> int:
+	return maxi(1, price_for(item, ante) / 2)
+
+func _price_of(item: Resource, ante: int) -> int:
+	return price_for(item, ante)

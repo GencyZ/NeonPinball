@@ -81,3 +81,21 @@ func test_deterministic_same_seed() -> void:
         assert_eq(shop_a.offerings[i][&"price"], shop_b.offerings[i][&"price"])
         assert_eq(shop_a.offerings[i][&"item"],  shop_b.offerings[i][&"item"])
     shop_a.free(); shop_b.free()
+
+const TriggerDefScript := preload("res://data/trigger_def.gd")
+
+func _trig(rarity: int) -> Resource:
+    var t = TriggerDefScript.new()
+    t.rarity = rarity
+    return t
+
+func test_price_for_by_rarity() -> void:
+    assert_eq(ShopScript.price_for(_trig(0), 0), 3, "rarity0 → 3")
+    assert_eq(ShopScript.price_for(_trig(1), 0), 5, "rarity1 → 5")
+    assert_eq(ShopScript.price_for(_trig(2), 0), 8, "rarity2 → 8")
+    assert_eq(ShopScript.price_for(_trig(3), 0), 12, "rarity3 → 12")
+    assert_eq(ShopScript.price_for(_trig(0), 4), 5, "+ante/2：3 + 4/2 = 5")
+
+func test_sell_value_is_half_min_one() -> void:
+    assert_eq(ShopScript.sell_value(_trig(2), 0), 4, "8/2 = 4")
+    assert_eq(ShopScript.sell_value(_trig(0), 0), 1, "max(1, 3/2=1)")

@@ -116,12 +116,20 @@ func _payout() -> void:
     var targets_bonus: int = 5 if state[&"targets_done"] else 0
     state[&"money"] += base_reward + launch_bonus + interest + targets_bonus
 
-func _roll_boss_mod() -> Dictionary:
-    var rng := DeterministicRng.derive(state[&"master_seed"],
-                                       state[&"ante"] * 7 + 13)
+static func boss_mod_for(master_seed: int, ante: int) -> Dictionary:
+    var rng := DeterministicRng.derive(master_seed, ante * 7 + 13)
     if rng.next_float() < 0.5:
         return {&"type": &"ban_mult"}
     return {&"type": &"sparse", &"remove_chance": 0.30}
+
+static func boss_mod_label(bm: Dictionary) -> String:
+    match bm.get(&"type", &""):
+        &"ban_mult": return "禁用 MULT 钉"
+        &"sparse":   return "钉子稀疏 −30%"
+        _:           return ""
+
+func _roll_boss_mod() -> Dictionary:
+    return boss_mod_for(state[&"master_seed"], state[&"ante"])
 
 func _reset() -> void:
     state = _make_default_state()
