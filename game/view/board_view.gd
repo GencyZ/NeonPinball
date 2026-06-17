@@ -181,6 +181,7 @@ func _place_pegs(count: int, avoid_pos: Array, rng: DeterministicRng, depth: int
 	return list
 
 # 落定后补 n 颗新钉：避开现有所有钉，确定性 RNG（salt 0x85EBCA6B 区别于发钉 0x9E3779B9，互不相关）。
+# 注：落定时 _launch_count 已是本发的值（下一发 launch() 才 +1），故同 seed+发序可复现。
 func _topup_pegs(n: int) -> Array:
 	var ante: int = RunMan.state[&"ante"]
 	var ria: int  = RunMan.state[&"round_in_ante"]
