@@ -1,4 +1,4 @@
-extends RefCounted
+class_name BoardRefill extends RefCounted
 # 棋盘持久/补钉的纯决策逻辑（可单测）。view 层调用，不持有状态。
 
 # 落定后保留哪些钉：目标钉无条件保留（存亡由 HP 管）；
