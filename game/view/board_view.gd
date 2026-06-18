@@ -35,6 +35,7 @@ var _trigger_runtimes: Array = []
 var _gate_chain: GateChain
 var _active_gate_def: GateDef
 var _active_shop: Shop = null
+var _shop_reroll_count := 0
 
 var _active_balls: Array = []
 var _prev_positions: Array = []
@@ -126,6 +127,8 @@ func _ready() -> void:
 
 	$Hud.shop_slot_pressed.connect(buy_shop_slot)
 	$Hud.shop_continue_pressed.connect(leave_shop)
+	$Hud.shop_reroll_pressed.connect(reroll_shop)
+	$Hud.shop_sell_trigger_pressed.connect(sell_equipped_trigger)
 
 func _generate_pegs(avoid_pos: Array = []) -> Array:
 	var ante: int = RunMan.state[&"ante"]
@@ -697,18 +700,77 @@ func _handle_phase_transition() -> void:
 func _show_shop_ui() -> void:
 	_live_target = 0.0
 	_score_ticker.reset()
+	_shop_reroll_count = 0
 	_active_shop = Shop.new()
 	_active_shop.roll(
 		RunMan.state[&"master_seed"],
 		RunMan.state[&"ante"],
 		RunMan.state[&"round_in_ante"],
-		0,
+		_shop_reroll_count,
 	)
-	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"])
+	_refresh_shop_hud()
+	_sync_hud()
+
+# 统一组装商店 HUD（offerings + money + reroll 花费 + boss 预告 + 已装备卖价）。
+func _refresh_shop_hud() -> void:
+	if _active_shop == null:
+		return
+	var ante: int = RunMan.state[&"ante"]
+	var reroll_cost: int = Shop.reroll_cost(_shop_reroll_count)
+	var boss_preview: String = ""
+	if int(RunMan.state[&"round_in_ante"]) == 2:
+		boss_preview = RunManagerScript.boss_mod_label(
+			RunManagerScript.boss_mod_for(int(RunMan.state[&"master_seed"]), ante))
+	var equipped: Array = []
+	for tid in RunMan.state[&"equipped_triggers"]:
+		var sell: int = 1
+		if GameDB.triggers.has(tid):
+			sell = Shop.sell_value(GameDB.triggers[tid], ante)
+		equipped.append({&"id": tid, &"sell": sell})
+	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"], reroll_cost, boss_preview, equipped)
+
+func reroll_shop() -> void:
+	if _active_shop == null:
+		return
+	var cost: int = Shop.reroll_cost(_shop_reroll_count)
+	if int(RunMan.state[&"money"]) < cost:
+		return
+	RunMan.state[&"money"] = int(RunMan.state[&"money"]) - cost
+	_shop_reroll_count += 1
+	_active_shop.roll(
+		RunMan.state[&"master_seed"],
+		RunMan.state[&"ante"],
+		RunMan.state[&"round_in_ante"],
+		_shop_reroll_count,
+	)
+	_refresh_shop_hud()
+	_sync_hud()
+
+func sell_equipped_trigger(index: int) -> void:
+	if _active_shop == null:
+		return
+	var equipped: Array = RunMan.state[&"equipped_triggers"]
+	if index < 0 or index >= equipped.size():
+		return
+	var tid = equipped[index]
+	var ante: int = RunMan.state[&"ante"]
+	if GameDB.triggers.has(tid):
+		RunMan.state[&"money"] = int(RunMan.state[&"money"]) + Shop.sell_value(GameDB.triggers[tid], ante)
+	equipped.remove_at(index)
+	_refresh_equipped()
+	_refresh_shop_hud()
 	_sync_hud()
 
 func buy_shop_slot(slot: int) -> void:
 	if _active_shop == null:
+		return
+	if slot < 0 or slot >= _active_shop.offerings.size():
+		return
+	var offer: Dictionary = _active_shop.offerings[slot]
+	var item: Resource = offer.get(&"item")
+	# 触发器满 5 槽：先拦截，不扣钱（修静默丢弃 bug）；提示先卖
+	if item is TriggerDef and (RunMan.state[&"equipped_triggers"] as Array).size() >= 5:
+		_refresh_shop_hud()
 		return
 	var money_ref := [RunMan.state[&"money"]]
 	var inv := {&"items": []}
@@ -716,14 +778,12 @@ func buy_shop_slot(slot: int) -> void:
 	if not ok:
 		return
 	RunMan.state[&"money"] = money_ref[0]
-	for item in inv[&"items"]:
-		if item is TriggerDef:
-			var equipped: Array = RunMan.state[&"equipped_triggers"]
-			if equipped.size() < 5:
-				equipped.append(item.id)
-		elif item is GateDef:
-			RunMan.state[&"equipped_gate"] = item.id
-	$Hud.show_shop(_active_shop.offerings, RunMan.state[&"money"])
+	for it in inv[&"items"]:
+		if it is TriggerDef:
+			(RunMan.state[&"equipped_triggers"] as Array).append(it.id)
+		elif it is GateDef:
+			RunMan.state[&"equipped_gate"] = it.id
+	_refresh_shop_hud()
 	_sync_hud()
 
 func leave_shop() -> void:
