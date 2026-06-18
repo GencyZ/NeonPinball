@@ -15,10 +15,16 @@ var _shop_panel: PanelContainer
 var _shop_title: Label
 var _shop_slots: Array[Button] = []
 var _shop_continue_btn: Button
+var _shop_boss_label: Label
+var _shop_hint: Label
+var _shop_sell_btns: Array[Button] = []
+var _shop_reroll_btn: Button
 var _shop_visible := false
 
 signal shop_slot_pressed(slot: int)
 signal shop_continue_pressed
+signal shop_reroll_pressed
+signal shop_sell_trigger_pressed(index: int)
 
 # ---- End-of-run buttons ----
 var _end_panel: Control
@@ -62,8 +68,8 @@ func _make_label(pos: Vector2, size: int, color: Color = Color.WHITE) -> Label:
 
 func _build_shop_panel() -> void:
 	_shop_panel = PanelContainer.new()
-	_shop_panel.position = Vector2(60, 210)
-	_shop_panel.custom_minimum_size = Vector2(420, 300)
+	_shop_panel.position = Vector2(60, 180)
+	_shop_panel.custom_minimum_size = Vector2(420, 480)
 	_shop_panel.visible = false
 	add_child(_shop_panel)
 
@@ -76,6 +82,13 @@ func _build_shop_panel() -> void:
 	_shop_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_shop_title)
 
+	_shop_boss_label = Label.new()
+	_shop_boss_label.add_theme_font_size_override(&"font_size", 17)
+	_shop_boss_label.modulate = Color(1.0, 0.5, 0.3)
+	_shop_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_boss_label.visible = false
+	vbox.add_child(_shop_boss_label)
+
 	for i in 4:
 		var btn := Button.new()
 		btn.add_theme_font_size_override(&"font_size", 17)
@@ -84,6 +97,37 @@ func _build_shop_panel() -> void:
 		btn.pressed.connect(func(): shop_slot_pressed.emit(slot_idx))
 		vbox.add_child(btn)
 		_shop_slots.append(btn)
+
+	_shop_reroll_btn = Button.new()
+	_shop_reroll_btn.add_theme_font_size_override(&"font_size", 16)
+	_shop_reroll_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_reroll_btn.visible = false
+	_shop_reroll_btn.pressed.connect(func(): shop_reroll_pressed.emit())
+	vbox.add_child(_shop_reroll_btn)
+
+	var equip_label := Label.new()
+	equip_label.text = "— 已装备触发器（点击卖出）—"
+	equip_label.add_theme_font_size_override(&"font_size", 14)
+	equip_label.modulate = Color(0.7, 0.9, 1.0)
+	equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(equip_label)
+
+	for i in 5:
+		var sbtn := Button.new()
+		sbtn.add_theme_font_size_override(&"font_size", 15)
+		sbtn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		sbtn.visible = false
+		var sell_idx := i
+		sbtn.pressed.connect(func(): shop_sell_trigger_pressed.emit(sell_idx))
+		vbox.add_child(sbtn)
+		_shop_sell_btns.append(sbtn)
+
+	_shop_hint = Label.new()
+	_shop_hint.add_theme_font_size_override(&"font_size", 14)
+	_shop_hint.modulate = Color(1.0, 0.7, 0.4)
+	_shop_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_hint.text = ""
+	vbox.add_child(_shop_hint)
 
 	_shop_continue_btn = Button.new()
 	_shop_continue_btn.text = "Continue →  (Space)"
@@ -110,7 +154,7 @@ func update_run_state(ante: int, round_in_ante: int,
 	_label_money.text   = "Gold: %d" % money
 	_label_launches.text = "Launches: %d" % launches
 
-func show_shop(offerings: Array, money: int) -> void:
+func show_shop(offerings: Array, money: int, reroll_cost: int = -1, boss_preview: String = "", equipped: Array = []) -> void:
 	_shop_visible = true
 	_shop_panel.visible = true
 
@@ -134,6 +178,32 @@ func show_shop(offerings: Array, money: int) -> void:
 			_shop_slots[i].text = "[%d] %s  (%d gold)" % [i + 1, name_str, price]
 			_shop_slots[i].disabled = not can_afford
 			_shop_slots[i].modulate = Color(1, 1, 0.5) if can_afford else Color(0.5, 0.5, 0.5)
+
+	# Boss 预告
+	_shop_boss_label.text = "⚠ 下一轮 BOSS：" + boss_preview
+	_shop_boss_label.visible = boss_preview != ""
+
+	# Reroll 按钮
+	if reroll_cost < 0:
+		_shop_reroll_btn.visible = false
+	else:
+		_shop_reroll_btn.visible = true
+		_shop_reroll_btn.text = "Reroll  (%d gold)" % reroll_cost
+		_shop_reroll_btn.disabled = money < reroll_cost
+		_shop_reroll_btn.modulate = Color(0.7, 1, 1) if money >= reroll_cost else Color(0.5, 0.5, 0.5)
+
+	# 已装备触发器卖出按钮
+	for i in 5:
+		if i < equipped.size():
+			var e: Dictionary = equipped[i]
+			_shop_sell_btns[i].text = "卖 %s  (+%d gold)" % [String(e.get(&"id", &"?")), int(e.get(&"sell", 0))]
+			_shop_sell_btns[i].visible = true
+			_shop_sell_btns[i].disabled = false
+		else:
+			_shop_sell_btns[i].visible = false
+
+	# 满槽提示
+	_shop_hint.text = "触发器已满（5），卖一个再买" if equipped.size() >= 5 else ""
 
 func hide_shop() -> void:
 	_shop_visible = false
