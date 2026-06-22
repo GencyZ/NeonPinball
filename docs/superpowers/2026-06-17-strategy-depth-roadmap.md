@@ -42,6 +42,7 @@
 > 共同点：让"一轮 5 球"从固定流程变成**可管理的资源**，每球产生取舍。体量 M。
 
 ### 2.1 球数变成可管理资源：多球 / 存球 / 赌球（M）
+> **赌球切片 ✅ 已实现推送 2026-06-22**（双倍或清零，G 键押注；commits 9fbf11a/304bd2c/8058d8d/beaeb54，268 测试全绿；`specs|plans/2026-06-18-gamble-ball*.md`）。**剩余**：多球（额外球扩展，LIFE 钉已 +1 发）、存球/提前收手。
 - **现状**：每轮**固定 5 球**（`run/run_manager.gd:43 LAUNCHES_PER_ROUND := 5`，`spend_launch`/`launches_exhausted`）。唯一"管理"是效率——剩球进收入（`_payout` 的 `launch_bonus = launches_left`，`run_manager.gd:112-117`）。**无多球/存球/赌球**。
 - **为什么是策略**：发球数是局内最自然的资源。
   - **额外球**（经典弹球 extra ball）：某钉/触发器命中给 +1 球 → "要不要为多打一颗 extra-ball 钉绕路"。
