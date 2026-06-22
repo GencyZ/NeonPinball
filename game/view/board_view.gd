@@ -132,6 +132,7 @@ func _ready() -> void:
 	$Hud.shop_continue_pressed.connect(leave_shop)
 	$Hud.shop_reroll_pressed.connect(reroll_shop)
 	$Hud.shop_sell_trigger_pressed.connect(sell_equipped_trigger)
+	$Hud.gamble_toggle_pressed.connect(toggle_gamble)
 
 func _generate_pegs(avoid_pos: Array = []) -> Array:
 	var ante: int = RunMan.state[&"ante"]
@@ -677,6 +678,7 @@ func _on_peg_exit_done() -> void:
 		_pegs[i][&"id"] = i
 	_sim = _make_sim(_pegs)
 	_rebuild_wall_segs(false)
+	_is_transitioning = false   # 棋盘已就绪（存活+补钉），立即可发射；新钉放大动画非阻塞继续
 	# 只给新补的钉播放放大出现动画（存活钉不重播）。
 	_peg_enter_ttls.clear()
 	for i in range(_pegs.size() - fresh_count, _pegs.size()):
@@ -998,6 +1000,12 @@ func _draw() -> void:
 		var tw := tf.get_string_size(stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz).x
 		draw_string(tf, _rect.position + Vector2(270.0 - tw * 0.5, 60.0),
 			stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, fsz, Color(1, 1, 1))
+	if _gamble_active and _has_ball:
+		var gf := ThemeDB.fallback_font
+		var gtxt := "GAMBLE x2?"
+		var gw := gf.get_string_size(gtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+		draw_string(gf, _rect.position + Vector2(270.0 - gw * 0.5, 96.0),
+			gtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1.0, 0.85, 0.2))
 	_draw_walls()
 	_draw_neon_frame()
 	for i in range(1, prediction_pts.size()):
