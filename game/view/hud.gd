@@ -9,6 +9,7 @@ var _label_quota: Label
 var _label_money: Label
 var _label_launches: Label
 var _label_targets: Label
+var _label_gamble: Label
 
 # ---- Shop panel ----
 var _shop_panel: PanelContainer
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_label_launches = _make_label(Vector2(490, 92), 18, Color(0.8, 0.8, 1.0))
 	_label_targets = _make_label(Vector2(490, 116), 18, Color(1.0, 0.85, 0.2))
 	_label_targets.text = ""
+	_label_gamble = _make_label(Vector2(490, 140), 16, Color(1.0, 0.55, 0.2))
 
 	# Initialize text
 	_label_total.text    = "Score: 0"
@@ -57,6 +59,7 @@ func _ready() -> void:
 
 	_build_shop_panel()
 	_build_end_panel()
+	set_gamble_label(false)
 
 func _make_label(pos: Vector2, size: int, color: Color = Color.WHITE) -> Label:
 	var lbl := Label.new()
@@ -242,3 +245,11 @@ func set_target_count(cleared: int, total: int) -> void:
 		_label_targets.text = ""
 	else:
 		_label_targets.text = "目标 %d/%d" % [cleared, total]
+
+func set_gamble_label(armed: bool) -> void:
+	if armed:
+		_label_gamble.text = "🎲 押注:开 ×2/0  [G]"
+		_label_gamble.modulate = Color(1.0, 0.85, 0.2)
+	else:
+		_label_gamble.text = "🎲 押注:关  [G]"
+		_label_gamble.modulate = Color(0.55, 0.55, 0.55)
