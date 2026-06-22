@@ -96,6 +96,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_2: _board.set_active_gate(&"accel")
 			KEY_3: _board.set_active_gate(&"scatter_angle")
 			KEY_4: _board.set_active_gate(&"scatter_split")
+			KEY_G:
+				_board.toggle_gamble()
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT and not _board._is_transitioning:
 			var r: Rect2 = _board.rect

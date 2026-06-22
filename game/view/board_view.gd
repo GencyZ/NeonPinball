@@ -13,6 +13,7 @@ const RunManagerScript := preload("res://run/run_manager.gd")
 const SaveSystemScript := preload("res://run/save_system.gd")
 const JuiceControllerScript := preload("res://juice/juice_controller.gd")
 const ComboScoreScript := preload("res://scoring/combo_score.gd")
+const GambleScript := preload("res://scoring/gamble.gd")
 const ScoreTickerScript := preload("res://juice/score_ticker.gd")
 const RoundGoalScript := preload("res://run/round_goal.gd")
 const BoardRefillScript := preload("res://run/board_refill.gd")
@@ -71,6 +72,8 @@ var _target_total_placed: int = 0   # 本轮实际生成的目标钉数（用于
 var _all_clear_ttl := 0.0           # ALL CLEAR 大字计时（由 _draw() 读取绘制；见目标钉可视化任务）
 var _score_ticker
 var _live_target := 0.0
+var _gamble_armed := false      # 玩家发射前的押注选择
+var _gamble_active := false     # 本球是否押注（发射时锁定）
 
 var _entry_edge: int = EntryResolver.BoardEdge.TOP
 var _entry_t: float = 0.5
@@ -433,6 +436,9 @@ func launch(ball: BallState) -> void:
 	_score_ctx.clear_for_launch()
 	_hit_ids.clear()
 	_combo = 0
+	_gamble_active = _gamble_armed
+	_gamble_armed = false
+	$Hud.set_gamble_label(false)
 	_score_ticker.reset()
 	_live_target = 0.0
 	_combo_display_ttl = 0.0
@@ -448,6 +454,16 @@ func launch(ball: BallState) -> void:
 	_events.clear(); _event_cursor = 0; _flashes.clear()
 	_launch_count += 1
 	set_active_gate(_active_gate_def.id)
+
+# 发射前切换"押注这球"（仅 ROUND/BOSS_ROUND 且无球/非过渡时有效）。
+func toggle_gamble() -> void:
+	if _has_ball or _is_transitioning:
+		return
+	var phase: int = RunMan.state[&"phase"]
+	if phase != RunManager.Phase.ROUND and phase != RunManager.Phase.BOSS_ROUND:
+		return
+	_gamble_armed = not _gamble_armed
+	$Hud.set_gamble_label(_gamble_armed)
 
 func _process(delta: float) -> void:
 	if _has_ball:
@@ -614,6 +630,11 @@ func _on_all_settled() -> void:
 		_score_ctx.add(ScoreContext.KIND_MUL_MULT, combo_x, &"combo")
 	var result := _engine.settle(_score_ctx)
 	var score: float = result[0]
+	if _gamble_active:
+		var won := GambleScript.is_success(_score_ctx.pegs_hit)
+		score = GambleScript.resolve(score, _score_ctx.pegs_hit)
+		_juice.floaters.add(_last_settle_pos + Vector2(0, -60), "GAMBLE ×2!" if won else "BUST  清零")
+		_gamble_active = false
 	_live_target = score
 	_juice.on_settle_combo(_last_settle_pos, score, combo_x, RunMan.launches_exhausted())
 	_sfx.play_settle()
@@ -701,6 +722,8 @@ func _show_shop_ui() -> void:
 	_live_target = 0.0
 	_score_ticker.reset()
 	_shop_reroll_count = 0
+	_gamble_armed = false
+	$Hud.set_gamble_label(false)
 	_active_shop = Shop.new()
 	_active_shop.roll(
 		RunMan.state[&"master_seed"],
