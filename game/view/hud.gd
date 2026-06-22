@@ -144,7 +144,7 @@ func _build_shop_panel() -> void:
 func add_score(s: float) -> void:
 	_total += s
 	_label_total.text = "Score: %d" % int(_total)
-	_label_last.text  = "+%d" % int(s)
+	_label_last.text  = "+%d" % int(s) if s > 0.0 else ""
 
 func set_gate_label(gate_name: String) -> void:
 	_label_gate.text = "Gate: " + gate_name
