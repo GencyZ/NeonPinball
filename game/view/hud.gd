@@ -10,6 +10,8 @@ var _label_money: Label
 var _label_launches: Label
 var _label_targets: Label
 var _label_gamble: Label
+var _gamble_btn: Button
+var _equip_label: Label
 
 # ---- Shop panel ----
 var _shop_panel: PanelContainer
@@ -26,6 +28,7 @@ signal shop_slot_pressed(slot: int)
 signal shop_continue_pressed
 signal shop_reroll_pressed
 signal shop_sell_trigger_pressed(index: int)
+signal gamble_toggle_pressed
 
 # ---- End-of-run buttons ----
 var _end_panel: Control
@@ -47,6 +50,11 @@ func _ready() -> void:
 	_label_targets = _make_label(Vector2(490, 116), 18, Color(1.0, 0.85, 0.2))
 	_label_targets.text = ""
 	_label_gamble = _make_label(Vector2(490, 140), 16, Color(1.0, 0.55, 0.2))
+	_gamble_btn = Button.new()
+	_gamble_btn.position = Vector2(490, 162)
+	_gamble_btn.add_theme_font_size_override(&"font_size", 14)
+	_gamble_btn.pressed.connect(func(): gamble_toggle_pressed.emit())
+	add_child(_gamble_btn)
 
 	# Initialize text
 	_label_total.text    = "Score: 0"
@@ -86,8 +94,8 @@ func _build_shop_panel() -> void:
 	vbox.add_child(_shop_title)
 
 	_shop_boss_label = Label.new()
-	_shop_boss_label.add_theme_font_size_override(&"font_size", 17)
-	_shop_boss_label.modulate = Color(1.0, 0.5, 0.3)
+	_shop_boss_label.add_theme_font_size_override(&"font_size", 22)
+	_shop_boss_label.modulate = Color(1.0, 0.65, 0.2)
 	_shop_boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_shop_boss_label.visible = false
 	vbox.add_child(_shop_boss_label)
@@ -108,12 +116,12 @@ func _build_shop_panel() -> void:
 	_shop_reroll_btn.pressed.connect(func(): shop_reroll_pressed.emit())
 	vbox.add_child(_shop_reroll_btn)
 
-	var equip_label := Label.new()
-	equip_label.text = "— 已装备触发器（点击卖出）—"
-	equip_label.add_theme_font_size_override(&"font_size", 14)
-	equip_label.modulate = Color(0.7, 0.9, 1.0)
-	equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(equip_label)
+	_equip_label = Label.new()
+	_equip_label.text = "— 已装备触发器（点击卖出）—"
+	_equip_label.add_theme_font_size_override(&"font_size", 14)
+	_equip_label.modulate = Color(0.7, 0.9, 1.0)
+	_equip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(_equip_label)
 
 	for i in 5:
 		var sbtn := Button.new()
@@ -207,6 +215,7 @@ func show_shop(offerings: Array, money: int, reroll_cost: int = -1, boss_preview
 
 	# 满槽提示
 	_shop_hint.text = "触发器已满（5），卖一个再买" if equipped.size() >= 5 else ""
+	_equip_label.visible = equipped.size() > 0
 
 func hide_shop() -> void:
 	_shop_visible = false
@@ -253,3 +262,6 @@ func set_gamble_label(armed: bool) -> void:
 	else:
 		_label_gamble.text = "🎲 押注:关  [G]"
 		_label_gamble.modulate = Color(0.55, 0.55, 0.55)
+	if _gamble_btn != null:
+		_gamble_btn.text = "🎲 押注 ON" if armed else "🎲 押注 OFF"
+		_gamble_btn.modulate = Color(1.0, 0.85, 0.2) if armed else Color(0.8, 0.8, 0.8)
