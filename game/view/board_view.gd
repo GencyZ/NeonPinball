@@ -876,12 +876,14 @@ func _neon_perimeter() -> PackedVector2Array:
 	])
 
 # 内线：外线各点朝板心偏移 NEON_GAP，与外线构成中空缝。
-func _neon_inner_perimeter() -> PackedVector2Array:
+# 装饰外线：物理边界(_neon_perimeter)各点朝远离板心方向偏 NEON_GAP（移到玩区边界之外）。
+# 球贴在物理线(最内侧)上滚，发光管/灯泡在边界外侧 → 球"贴内壁滚"而非浮在缝里。
+func _neon_outer_perimeter() -> PackedVector2Array:
 	var center := _rect.get_center()
-	var inner := PackedVector2Array()
+	var outer := PackedVector2Array()
 	for pt in _neon_perimeter():
-		inner.append(pt + (center - pt).normalized() * NEON_GAP)
-	return inner
+		outer.append(pt + (pt - center).normalized() * NEON_GAP)
+	return outer
 
 # 沿一条闭合线按弧长采样上色（行波明暗 + 变色）。
 func _draw_flow_line(line: PackedVector2Array, seg_count: int) -> void:
@@ -906,7 +908,7 @@ func _draw_pulse_on(line: PackedVector2Array, center: float, pcol: Color) -> voi
 # 中空双线（行波明暗+变色）+ 缝中灯泡环 + 内外热脉冲；全由 _wall_heat/_neon_phase/_neon_hue_phase 驱动。
 func _draw_neon_frame() -> void:
 	var poly := _neon_perimeter()
-	var inner := _neon_inner_perimeter()
+	var outer := _neon_outer_perimeter()
 	var pn := poly.size()
 	if pn < 2:
 		return
@@ -916,13 +918,13 @@ func _draw_neon_frame() -> void:
 	var seg_count := maxi(8, int(total / 10.0))
 	# 内外双线：行波明暗 + 变色（同 s/相位 → 同步）
 	_draw_flow_line(poly, seg_count)
-	_draw_flow_line(inner, seg_count)
+	_draw_flow_line(outer, seg_count)
 	# 缝中一圈小灯泡（奇偶错相，交替）
 	var n_bulbs := maxi(1, int(total / BULB_SPACING))
 	for i in n_bulbs:
 		var bp := float(i) / float(n_bulbs)
 		var bphase := _neon_phase if (i % 2 == 0) else _neon_phase + 0.5
-		var mid := (NeonFrameScript.point_at(poly, bp) + NeonFrameScript.point_at(inner, bp)) * 0.5
+		var mid := (NeonFrameScript.point_at(poly, bp) + NeonFrameScript.point_at(outer, bp)) * 0.5
 		draw_circle(mid, BULB_RADIUS, NeonFrameScript.frame_color(bp, bphase, _neon_hue_phase, _wall_heat))
 	# 热脉冲（连击叠加，内外两线同相位 → 同步）
 	var n := NeonFrameScript.pulse_count_for_heat(_wall_heat)
@@ -934,7 +936,7 @@ func _draw_neon_frame() -> void:
 	for i in n:
 		var center := fmod(_neon_phase + float(i) / float(n), 1.0)
 		_draw_pulse_on(poly, center, pcol)
-		_draw_pulse_on(inner, center, pcol)
+		_draw_pulse_on(outer, center, pcol)
 
 func _draw() -> void:
 	# Dying pegs: shrink + fade out
